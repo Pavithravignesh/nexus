@@ -14,7 +14,10 @@ export type PersistenceStatus = {
   lastFlush: { at: string; readings: number; events: number; ms: number } | null;
 };
 
-export const persistenceStatus: PersistenceStatus = { attached: false, lastError: null, lastFlush: null };
+// On globalThis: Next bundles instrumentation.ts and route handlers separately, so a plain
+// module-level object would not be the one /api/health reads.
+const g = globalThis as typeof globalThis & { __nexusPersistence?: PersistenceStatus };
+export const persistenceStatus: PersistenceStatus = (g.__nexusPersistence ??= { attached: false, lastError: null, lastFlush: null });
 
 /**
  * Connect the simulator to MongoDB: indexes, the 10,000 devices, a full snapshot of the

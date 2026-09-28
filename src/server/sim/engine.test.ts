@@ -117,6 +117,19 @@ describe("SimEngine offline handling", () => {
   });
 });
 
+describe("SimEngine long run", () => {
+  it("settles at a stable health mix instead of drifting offline", () => {
+    const e = new SimEngine({ seed: 9, nowMs: T0, changeRatio: 0.1, offlineAfterMs: 30_000, size: 3000 });
+    const shares: number[] = [];
+    for (let k = 1; k <= 400; k++) {
+      const s = e.step(T0 + k * 1000).summary.byStatus;
+      if (k % 50 === 0) shares.push(s.OFFLINE / 3000);
+    }
+    for (const share of shares) expect(share).toBeLessThan(0.06);
+    expect(e.summary.byStatus.NORMAL / 3000).toBeGreaterThan(0.9);
+  });
+});
+
 describe("SimEngine history", () => {
   it("samples every sampleEveryMs and returns oldest-first series", () => {
     const e = new SimEngine({ seed: 1, nowMs: T0, changeRatio: 0.1, offlineAfterMs: 30_000, size: 50, sampleEveryMs: 2000, historyCapacity: 5 });

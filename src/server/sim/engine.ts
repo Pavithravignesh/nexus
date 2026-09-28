@@ -30,7 +30,7 @@ export type TickResult = {
 const REPORT_AT_LEAST_MS = 8000;
 const INITIAL_OFFLINE_SHARE = 0.038;
 const GO_OFFLINE_P = 0.0006;
-const COME_BACK_P = 0.004;
+const COME_BACK_P = 0.02; // with GO_OFFLINE_P: equilibrium ~3% silent, most long enough to show OFFLINE
 const ANOMALIES_PER_TICK = 4;
 const SEVERE_SHARE = 0.25;
 
