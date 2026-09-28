@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Nexus Ops Dashboard
 
 Real-time Operations Dashboard for 10,000 simulated devices x 10 sensor types.

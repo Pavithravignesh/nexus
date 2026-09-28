@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Theme tokens: Industrial 3D Control Room (see ops-dashboard-engineering/references/ui-system.md). */
+:root {
+  --bg: #0a0907;
+  --surface: #14110c;
+  --panel: rgba(22, 19, 14, 0.82);
+  --border: rgba(255, 138, 0, 0.22);
+  --text: #f2e9dc;
+  --text-muted: #a0927c;
+  --accent: #ff8a00;
+  --accent-2: #34d1ff;
+  --st-normal: #3ddc84;
+  --st-warning: #ffd23f;
+  --st-critical: #ff3b3b;
+  --st-offline: #6b6459;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-normal: var(--st-normal);
+  --color-warning: var(--st-warning);
+  --color-critical: var(--st-critical);
+  --color-offline: var(--st-offline);
+  --font-sans: var(--font-rajdhani);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-rajdhani), sans-serif;
+  font-variant-numeric: tabular-nums;
+}
