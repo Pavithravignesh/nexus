@@ -1,4 +1,4 @@
-import { DEVICE_TYPES, FLEET_SIZE, FLOORS, SITE, ZONES, deviceIdFor } from "@/shared/fleet";
+import { DEVICE_TYPES, FLEET_SIZE, FLOORS, SITE, ZONES, deviceIdFor, deviceNameFor } from "@/shared/fleet";
 import type { DeviceMeta } from "@/shared/types";
 import type { Rng } from "./random";
 
@@ -14,7 +14,7 @@ export function buildFleet(rng: Rng, size: number = FLEET_SIZE): DeviceMeta[] {
     return {
       idx,
       deviceId: deviceIdFor(idx),
-      name: `${zone}${floor}-${type.split(" ")[0]}-${(idx % 97) + 1}`,
+      name: deviceNameFor(idx, zone, floor, type),
       type,
       site: SITE,
       floor,

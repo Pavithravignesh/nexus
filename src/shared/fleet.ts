@@ -22,6 +22,16 @@ export function deviceIdFor(idx: number): string {
   return "DEV-" + String(idx + 1).padStart(5, "0");
 }
 
+export function deviceNameFor(idx: number, zone: Zone, floor: Floor, type: DeviceType): string {
+  return `${zone}${floor}-${type.split(" ")[0] ?? type}-${(idx % 97) + 1}`;
+}
+
+/**
+ * Columnar device metadata for the browser snapshot: ~250 KB instead of ~2.8 MB of objects.
+ * Row = [floor, zoneIdx, typeIdx, room, rack]; deviceId and name are derived from idx.
+ */
+export type FleetMeta = { site: string; rows: [number, number, number, string, string][] };
+
 /** Inverse of deviceIdFor; returns null for anything that is not a valid id in the fleet. */
 export function deviceIdxFor(deviceId: string): number | null {
   const m = /^DEV-(\d{5})$/.exec(deviceId);
