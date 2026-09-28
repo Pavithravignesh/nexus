@@ -1,0 +1,830 @@
+<!doctype html>
+<!-- Throwaway prototype: three visual directions + interactive charts + live data model for the Nexus Ops dashboard.
+     Everything is driven by an in-browser simulation of 10,000 devices x 10 sensors (stands in for the SSE stream). -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus Ops — style directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --ok:#2BD17E; --warn:#F5B83D; --crit:#FF4D6D; --off:#7C8798; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font); transition: background .4s; overflow-x: hidden; }
+  .num, svg text { font-family: var(--num-font); font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: inherit; }
+
+  /* ---------- A: Mission Control ---------- */
+  body.A { --bg:#05070F; --panel:rgba(12,20,38,.82); --panel-solid:#0B1222; --border:rgba(0,229,255,.18); --text:#DDE7FF; --muted:#7D8BB0;
+    --accent:#00E5FF; --accent2:#B14BFF; --font:'Space Grotesk',sans-serif; --num-font:'Space Grotesk',sans-serif; --radius:14px; }
+  body.A::before { content:""; position:fixed; inset:0; pointer-events:none;
+    background-image: linear-gradient(rgba(0,229,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,.05) 1px, transparent 1px);
+    background-size: 40px 40px; mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 80%); }
+  body.A .panel { box-shadow: inset 0 1px 0 rgba(0,229,255,.25), 0 0 0 1px var(--border), 0 20px 60px -30px rgba(0,229,255,.35); }
+  body.A .glow { filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 12px currentColor); }
+  body.A .kpi .v { text-shadow: 0 0 18px var(--kc); }
+
+  /* ---------- B: Aurora Glass ---------- */
+  body.B { --bg:#070B18; --panel:rgba(255,255,255,.055); --panel-solid:#141A2E; --border:rgba(255,255,255,.10); --text:#EEF1FA; --muted:#98A2BF;
+    --accent:#7C9CFF; --accent2:#FF7AC6; --font:'Inter',sans-serif; --num-font:'Inter',sans-serif; --radius:20px; }
+  body.B::before { content:""; position:fixed; inset:-20%; pointer-events:none; z-index:0; filter: blur(80px); opacity:.55;
+    background: radial-gradient(35% 30% at 15% 20%, #3B5BFF 0%, transparent 70%), radial-gradient(30% 30% at 85% 15%, #C23CFF 0%, transparent 70%),
+                radial-gradient(35% 35% at 60% 90%, #00C2A8 0%, transparent 70%); animation: drift 22s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate3d(4%, -3%, 0) rotate(8deg); } }
+  body.B .panel, body.B .drawer { backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%); border:1px solid var(--border);
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08); }
+  body.B .glow { filter: drop-shadow(0 4px 10px currentColor); }
+
+  /* ---------- C: Tactical HUD ---------- */
+  body.C { --bg:#0A0907; --panel:rgba(22,19,14,.82); --panel-solid:#14110C; --border:rgba(255,138,0,.22); --text:#F2E9DC; --muted:#A0927C;
+    --accent:#FF8A00; --accent2:#34D1FF; --font:'Rajdhani',sans-serif; --num-font:'JetBrains Mono',monospace; --radius:0px;
+    --ok:#3DDC84; --warn:#FFD23F; --crit:#FF3B3B; --off:#6B6459; }
+  body.C::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:50; background: repeating-linear-gradient(0deg, rgba(255,138,0,.03) 0 1px, transparent 1px 3px); }
+  body.C .scan { display:block; }
+  body.C .panel { border:1px solid var(--border); }
+  body.C .panel::before, body.C .panel::after { content:""; position:absolute; width:14px; height:14px; border:2px solid var(--accent); pointer-events:none; }
+  body.C .panel::before { top:-1px; left:-1px; border-right:0; border-bottom:0; }
+  body.C .panel::after { bottom:-1px; right:-1px; border-left:0; border-top:0; }
+  body.C .ptitle, body.C .kpi .l, body.C th { text-transform: uppercase; letter-spacing: .14em; }
+  body.C .glow { filter: drop-shadow(0 0 4px currentColor); }
+  body.C .chip, body.C .st, body.C .alert, body.C .fchip, body.C .tabs button, body.C .seg button, body.C .tile, body.C .live, body.C .search { border-radius:0 !important; }
+
+  /* ---------- Layout ---------- */
+  .wrap { position: relative; z-index: 1; max-width: 1560px; margin: 0 auto; padding: 16px 20px 96px; }
+  .scan { display:none; position:fixed; left:0; right:0; height:120px; top:-120px; z-index:49; pointer-events:none; background: linear-gradient(180deg, transparent, rgba(255,138,0,.05), transparent); animation: scan 6s linear infinite; }
+  .panel.twinpanel { padding:0; }
+  .twin { position:relative; height:500px; }
+  .twin canvas { display:block; width:100% !important; height:100% !important; border-radius: var(--radius); }
+  .hud { position:absolute; z-index:2; pointer-events:none; font-size:12px; color: var(--muted); }
+  .hud.tl { top:14px; left:18px; } .hud.tr { top:12px; right:14px; pointer-events:auto; display:flex; gap:6px; } .hud.bl { bottom:12px; left:18px; } .hud.br { bottom:12px; right:16px; text-align:right; }
+  .hud h3 { margin:0 0 4px; font-size:15px; font-weight:600; color: var(--text); letter-spacing:.04em; }
+  .hud .lg { display:flex; gap:12px; margin-top:6px; } .hud .lg span::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .hud button { cursor:pointer; font-size:11px; padding:5px 10px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--panel-solid) 70%, transparent); color: var(--text); backdrop-filter: blur(6px); }
+  .hud button.on { border-color: var(--accent); color: var(--accent); }
+  .tw-fallback { display:grid; place-items:center; height:100%; color: var(--muted); font-size:14px; }
+  .alertpanel { max-height: 500px; }
+  @keyframes scan { to { top: 100vh; } }
+  header { display:flex; align-items:center; gap:14px; padding: 6px 4px 16px; flex-wrap: wrap; }
+  .logo { display:flex; align-items:center; gap:10px; font-weight:600; letter-spacing:.08em; font-size:18px; }
+  .logo .mark { width:28px; height:28px; border-radius:8px; background: conic-gradient(from 200deg, var(--accent), var(--accent2), var(--accent)); box-shadow: 0 0 20px var(--accent); }
+  body.C .logo .mark { border-radius:0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .tabs { display:flex; gap:4px; padding:4px; border-radius:12px; background: var(--panel); border:1px solid var(--border); }
+  .tabs button { all:unset; cursor:pointer; padding:6px 12px; border-radius:8px; font-size:13px; color: var(--muted); }
+  .tabs button.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+  .search { flex:1; min-width:220px; max-width:420px; display:flex; align-items:center; gap:8px; padding:0 12px; border-radius: 10px; background: var(--panel); border:1px solid var(--border); }
+  .search input { all:unset; flex:1; padding:9px 0; font-size:14px; color: var(--text); }
+  .search input::placeholder { color: var(--muted); }
+  kbd { font-family: var(--num-font); font-size:11px; border:1px solid var(--border); padding:1px 6px; border-radius:4px; color: var(--muted); }
+  .spacer { flex:1; }
+  .live { display:flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; font-size:13px; border:1px solid rgba(43,209,126,.35); background: rgba(43,209,126,.10); color: var(--ok); cursor:pointer; }
+  .live.paused { color: var(--warn); border-color: rgba(245,184,61,.4); background: rgba(245,184,61,.1); }
+  .dot { width:8px; height:8px; border-radius:50%; background: currentColor; animation: ping 1.6s infinite; }
+  .live.paused .dot { animation:none; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+  .clock { font-family: var(--num-font); color: var(--muted); font-size:13px; }
+
+  .filters { display:flex; gap:8px; align-items:center; min-height:30px; margin: -4px 4px 12px; flex-wrap: wrap; font-size:12px; color: var(--muted); }
+  .fchip { display:inline-flex; gap:6px; align-items:center; padding:4px 10px; border-radius:999px; background: color-mix(in srgb, var(--accent) 16%, transparent); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); cursor:pointer; }
+  .fchip:hover { background: color-mix(in srgb, var(--crit) 20%, transparent); }
+
+  .grid { display:grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap:16px; }
+  .panel { position:relative; background: var(--panel); border-radius: var(--radius); padding:16px 18px; min-width:0; overflow:hidden; }
+  .ptitle { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; color: var(--muted); font-weight:500; margin-bottom:10px; }
+  .ptitle b { color: var(--text); font-weight:500; font-size:14px; }
+  .hint { font-size:11px; color: var(--muted); opacity:.8; }
+  .chip { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--border); color: var(--muted); white-space:nowrap; }
+
+  .kpi { grid-column: span 2; cursor:pointer; transition: transform .2s, outline-color .2s; outline: 2px solid transparent; outline-offset: -2px; }
+  .kpi:hover { transform: translateY(-2px); }
+  .kpi.sel { outline-color: var(--kc); }
+  .kpi .l { font-size:12px; color: var(--muted); display:flex; align-items:center; gap:6px; }
+  .kpi .l i { width:8px; height:8px; border-radius:2px; background: var(--kc); box-shadow: 0 0 10px var(--kc); }
+  .kpi .v { font-size:32px; font-weight:600; margin:6px 0 2px; line-height:1.1; }
+  .kpi .d { font-size:12px; color: var(--muted); }
+  .kpi svg { position:absolute; right:10px; bottom:10px; width:45%; height:44px; color: var(--kc); }
+  .kpi::after { content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background: linear-gradient(90deg, transparent, var(--kc), transparent); opacity:.8; }
+  body.C .kpi::after { display:none; }
+  .span5 { grid-column: span 5; } .span3 { grid-column: span 3; } .span4 { grid-column: span 4; } .span8 { grid-column: span 8; } .span12 { grid-column: span 12; } .span6 { grid-column: span 6; }
+  .tall { grid-row: span 2; }
+  svg .hit { cursor:pointer; }
+
+  .alerts { display:flex; flex-direction:column; gap:8px; }
+  .alert { display:grid; grid-template-columns: 4px 1fr auto; gap:10px; align-items:center; padding:10px 12px 10px 0; border-radius: 10px; background: rgba(255,255,255,.03); border:1px solid var(--border); cursor:pointer; animation: slidein .5s cubic-bezier(.2,.8,.2,1); }
+  .alert:hover { background: rgba(255,255,255,.07); }
+  .alert .bar { align-self:stretch; border-radius:4px; background: var(--sc); box-shadow: 0 0 12px var(--sc); }
+  .alert .t { font-size:13px; } .alert .t b { font-weight:600; color: var(--sc); margin-right:6px; }
+  .alert .s { font-size:11px; color: var(--muted); margin-top:2px; }
+  .alert .age { font-family: var(--num-font); font-size:11px; color: var(--muted); }
+  @keyframes slidein { from { opacity:0; transform: translateX(24px); } to { opacity:1; transform:none; } }
+  .feed { margin-top:14px; border-top:1px solid var(--border); padding-top:10px; font-family: var(--num-font); font-size:11px; color: var(--muted); display:flex; flex-direction:column; gap:4px; max-height:190px; overflow:hidden; }
+  .feed div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .feed i { font-style:normal; color: var(--sc); }
+
+  .tablewrap { max-height: 420px; overflow:auto; }
+  table { width:100%; border-collapse: collapse; font-size:13px; }
+  th { position:sticky; top:0; background: var(--panel-solid); text-align:left; font-weight:500; color: var(--muted); font-size:11px; letter-spacing:.06em; padding:8px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+  th:hover { color: var(--text); } th.sorted { color: var(--accent); }
+  td { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,.04); font-family: var(--num-font); font-size:12px; white-space:nowrap; transition: background .6s, color .6s; }
+  tbody tr { cursor:pointer; } tbody tr:hover td { background: rgba(255,255,255,.05); }
+  tbody tr.selrow td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  td.flash { background: color-mix(in srgb, var(--accent) 22%, transparent); color: #fff; }
+  td.w { color: var(--warn); } td.c { color: var(--crit); font-weight:600; }
+  .st { display:inline-flex; align-items:center; gap:6px; font-family: var(--font); font-weight:600; font-size:11px; padding:2px 8px; border-radius:999px; color: var(--sc); background: color-mix(in srgb, var(--sc) 14%, transparent); border:1px solid color-mix(in srgb, var(--sc) 40%, transparent); }
+  tr.off td { opacity:.5; } tr.off td:first-child { opacity:1; }
+  .pausechip { display:none; } .tablepaused .pausechip { display:inline-block; color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+
+  .tip { position:fixed; z-index:200; pointer-events:none; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.5; background: var(--panel-solid); color: var(--text); border:1px solid var(--border); box-shadow: 0 10px 30px -8px #000; opacity:0; transition: opacity .12s; min-width:120px; }
+  .tip.on { opacity:1; } .tip b { font-weight:600; } .tip .r { display:flex; justify-content:space-between; gap:14px; font-family: var(--num-font); }
+  .tip .sw { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; }
+
+  .drawer { position:fixed; top:0; right:0; bottom:0; width:min(540px, 100vw); z-index:120; background: var(--panel-solid); border-left:1px solid var(--border); transform: translateX(105%); transition: transform .25s cubic-bezier(.2,.8,.2,1); overflow-y:auto; padding:18px 20px 40px; }
+  .drawer.open { transform:none; box-shadow: -30px 0 60px -20px #000; }
+  .dhead { border-radius: 12px; padding:14px 16px; background: color-mix(in srgb, var(--sc) 14%, transparent); border:1px solid color-mix(in srgb, var(--sc) 45%, transparent); margin-bottom:14px; }
+  .dhead h2 { margin:6px 0 4px; font-size:20px; font-weight:600; } .dhead .crumb { font-size:12px; color: var(--muted); }
+  .close { position:absolute; top:22px; right:26px; cursor:pointer; background:none; border:1px solid var(--border); border-radius:8px; padding:4px 10px; color: var(--muted); }
+  .tiles { display:grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap:8px; margin-bottom:14px; }
+  .tile { border-radius:10px; padding:8px; border:1px solid var(--border); cursor:pointer; background: rgba(255,255,255,.03); min-width:0; }
+  .tile.on { outline:2px solid var(--accent); outline-offset:-2px; } .tile .l { font-size:10px; color: var(--muted); } .tile .v { font-family: var(--num-font); font-size:13px; margin:2px 0; color: var(--sc); }
+  .tile svg { width:100%; height:22px; color: var(--sc); display:block; }
+  .seg { display:flex; gap:4px; } .seg button { all:unset; cursor:pointer; font-size:11px; padding:3px 8px; border:1px solid var(--border); border-radius:6px; color: var(--muted); } .seg button.on { color: var(--text); border-color: var(--accent); }
+  .timeline { font-size:12px; display:flex; flex-direction:column; gap:6px; } .timeline div { display:flex; gap:10px; } .timeline span:first-child { font-family: var(--num-font); color: var(--muted); }
+  .scrim { position:fixed; inset:0; z-index:110; background: rgba(0,0,0,.35); opacity:0; pointer-events:none; transition: opacity .25s; } .scrim.on { opacity:1; pointer-events:auto; }
+
+  .dm { display:none; } body.model .dm { display:grid; } body.model .dash { display:none; }
+  .dm { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap:16px; }
+  .ent { cursor:pointer; } .ent rect.box { transition: stroke .2s, fill-opacity .2s; }
+  pre.json { margin:0; font-family: var(--num-font); font-size:12px; line-height:1.55; white-space:pre-wrap; word-break:break-word; max-height:520px; overflow:auto; color: var(--text); }
+  .kv { display:grid; grid-template-columns: 110px 1fr; gap:6px 12px; font-size:13px; margin-bottom:12px; } .kv span:nth-child(odd) { color: var(--muted); }
+
+  .switcher { position:fixed; left:50%; bottom:18px; transform: translateX(-50%); z-index:100; display:flex; gap:6px; padding:6px; border-radius:14px; background: rgba(10,12,20,.92); border:1px solid rgba(255,255,255,.14); backdrop-filter: blur(10px); font-family: Inter, sans-serif; box-shadow: 0 20px 40px -10px #000; }
+  .switcher button { all:unset; cursor:pointer; padding:8px 14px; border-radius:10px; color:#AEB6CC; font-size:13px; white-space:nowrap; }
+  .switcher button.on { background:#fff; color:#0B0F17; }
+  .switcher span { color:#6B7390; font-size:12px; padding:8px 8px 8px 12px; }
+  @media (max-width: 1200px) { .kpi { grid-column: span 4; } .span5,.span3,.span4,.span8,.span6 { grid-column: span 12; } .tall { grid-row:auto; } .dm { grid-template-columns: 1fr; } }
+  @media (max-width: 800px) { .kpi { grid-column: span 6; } .clock { display:none; } .switcher span { display:none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body class="C">
+<div class="scan"></div>
+<div class="wrap">
+  <header>
+    <div class="logo"><div class="mark"></div>NEXUS<span style="color:var(--muted);font-weight:400">OPS</span></div>
+    <div class="tabs" role="tablist"><button data-view="dash" class="on">Overview</button><button data-view="model">Data model</button></div>
+    <label class="search">⌕<input id="q" placeholder="Search device id, zone (e.g. DEV-0421, C2)…" /><kbd>/</kbd></label>
+    <div class="spacer"></div>
+    <div class="live" id="live" title="Pause / resume the live stream (Space)"><span class="dot"></span><span id="livetxt">LIVE · SSE</span> · <span id="lag" class="num">0.4s</span></div>
+    <div class="clock" id="clock"></div>
+  </header>
+  <div class="filters" id="filters"></div>
+
+  <!-- ================= Overview ================= -->
+  <div class="grid dash">
+    <div class="panel kpi" data-f="all" style="--kc:var(--accent)"><div class="l"><i></i>Total devices</div><div class="v num" id="k-total">10,000</div><div class="d">10 sensor types · 24 zones</div><svg id="s-total"></svg></div>
+    <div class="panel kpi" data-f="ok" style="--kc:var(--ok)"><div class="l"><i></i>Normal</div><div class="v num" id="k-ok">—</div><div class="d" id="d-ok"></div><svg id="s-ok"></svg></div>
+    <div class="panel kpi" data-f="warn" style="--kc:var(--warn)"><div class="l"><i></i>Warning</div><div class="v num" id="k-warn">—</div><div class="d" id="d-warn"></div><svg id="s-warn"></svg></div>
+    <div class="panel kpi" data-f="crit" style="--kc:var(--crit)"><div class="l"><i></i>Critical</div><div class="v num" id="k-crit">—</div><div class="d" id="d-crit"></div><svg id="s-crit"></svg></div>
+    <div class="panel kpi" data-f="off" style="--kc:var(--off)"><div class="l"><i></i>Offline</div><div class="v num" id="k-off">—</div><div class="d" id="d-off"></div><svg id="s-off"></svg></div>
+    <div class="panel kpi" data-f="all" style="--kc:var(--accent2)"><div class="l"><i></i>Readings / sec</div><div class="v num" id="k-eps">—</div><div class="d">delta frame · 1 Hz</div><svg id="s-eps"></svg></div>
+
+    <div class="panel span8 twinpanel"><div class="twin" id="twin">
+      <div class="hud tl"><h3 id="tw-title">3D Digital Twin</h3><div id="tw-sub">DC-1 · 4 floors × 6 zones · 10,000 devices live</div>
+        <div class="lg"><span style="--c:var(--ok)">Normal</span><span style="--c:var(--warn)">Warning</span><span style="--c:var(--crit)">Critical</span><span style="--c:var(--off)">Offline</span></div></div>
+      <div class="hud tr"><button id="tw-rot" class="on">⟳ Auto-orbit</button><button id="tw-reset">⌂ Reset view</button></div>
+      <div class="hud bl">drag = orbit · ctrl + scroll = zoom · hover = inspect · click zone = filter · click device = drill down</div>
+      <div class="hud br num" id="tw-stat"></div>
+    </div></div>
+    <div class="panel span4 alertpanel"><div class="ptitle"><b>Live alerts</b><span class="chip" id="alert-count"></span></div><div class="alerts" id="alerts"></div>
+      <div class="feed" id="feed"></div></div>
+
+    <div class="panel span5"><div class="ptitle"><b>Fleet health · incident trend</b><span class="hint">hover = inspect · click legend = toggle</span></div><svg id="area" height="230" width="100%"></svg></div>
+    <div class="panel span3"><div class="ptitle"><b>Device matrix · 10,000 LEDs</b><span class="hint">1 cell = 1 device · click = open</span></div><canvas id="matrix" style="width:100%;height:172px;display:block;cursor:crosshair"></canvas><svg id="segbar" height="52" width="100%" style="margin-top:6px"></svg></div>
+    <div class="panel span4"><div class="ptitle"><b>Sensor breach radar</b><span class="hint">click a sensor = filter</span></div><svg id="radar" height="230" width="100%"></svg></div>
+
+    <div class="panel span6"><div class="ptitle"><b>Zone map</b><span class="hint">floor × zone · click = filter</span></div><svg id="hex" height="230" width="100%"></svg></div>
+    <div class="panel span6"><div class="ptitle"><b>Fleet averages</b><span class="chip">online devices</span></div><svg id="gauges" height="230" width="100%"></svg></div>
+    <div class="panel span12" id="tablepanel"><div class="ptitle"><b>Devices</b><span><span class="chip pausechip">⏸ live order paused while hovering</span> <span class="chip" id="tcount"></span></span></div>
+      <div class="tablewrap"><table><thead><tr id="thead"></tr></thead><tbody id="rows"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ================= Data model ================= -->
+  <div class="dm">
+    <div class="panel"><div class="ptitle"><b>Data model · live</b><span class="hint">hover = relations · click = live sample</span></div><svg id="erd" height="640" width="100%"></svg></div>
+    <div class="panel"><div class="ptitle"><b id="ent-title">Entity</b><span class="chip" id="ent-where"></span></div>
+      <div id="ent-desc" style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6"></div>
+      <div class="kv" id="ent-kv"></div>
+      <div class="ptitle"><b>Live sample</b><span class="chip">updates every tick</span></div>
+      <pre class="json" id="ent-json"></pre></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Device details"></aside>
+<div class="tip" id="tip"></div>
+
+<div class="switcher" aria-label="Style direction">
+  <span>Style</span>
+  <button data-v="A">1 · 3D Digital Twin</button>
+  <button data-v="B">2 · Orbital Telemetry</button>
+  <button data-v="C">3 · Industrial Control Room</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* =========================================================================
+   1. Data model (mirrors CONTEXT.md): SensorType, Device, Reading, Sample, Alert, Event, Summary, Delta
+   ========================================================================= */
+const SENSORS = [
+  { key: "temperature", label: "Temp", unit: "°C", dp: 1, base: 23, sd: .25, hi: [30, 35] },
+  { key: "humidity", label: "Humidity", unit: "%", dp: 0, base: 46, sd: .6, hi: [65, 80] },
+  { key: "co2", label: "CO2", unit: "ppm", dp: 0, base: 650, sd: 12, hi: [1000, 1500] },
+  { key: "o2", label: "O2", unit: "%", dp: 1, base: 20.9, sd: .03, lo: [19.5, 18.5] },
+  { key: "no2", label: "NO2", unit: "ppb", dp: 0, base: 28, sd: 1.5, hi: [100, 200] },
+  { key: "pm25", label: "PM2.5", unit: "µg/m³", dp: 0, base: 12, sd: .8, hi: [35, 55] },
+  { key: "pm10", label: "PM10", unit: "µg/m³", dp: 0, base: 24, sd: 1.2, hi: [50, 150] },
+  { key: "pressure", label: "Pressure", unit: "hPa", dp: 0, base: 1013, sd: .6, lo: [985, 970], hi: [1040, 1055] },
+  { key: "noise", label: "Noise", unit: "dB", dp: 0, base: 52, sd: 1.2, hi: [80, 90] },
+  { key: "occupancy", label: "Occupancy", unit: "ppl", dp: 0, base: 8, sd: .8, hi: [40, 60] },
+];
+const NS_ = SENSORS.length, N = 10000, FLOORS = 4, ZONES = "ABCDEF";
+const TYPES = ["EnvProbe v3", "AirQuality X2", "RackMonitor", "ClimateNode"];
+const ST = { ok: 0, warn: 1, crit: 2, off: 3 }, STK = ["ok", "warn", "crit", "off"], STL = ["NORMAL", "WARNING", "CRITICAL", "OFFLINE"], ICON = ["●", "▲", "⬣", "⦸"];
+const STALE_MS = 10000, OFFLINE_MS = 30000, CHANGE_RATIO = .1;
+
+let seed = 42; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.6;
+
+const devices = Array.from({ length: N }, (_, i) => {
+  const floor = 1 + Math.floor(rand() * FLOORS), zone = ZONES[Math.floor(rand() * 6)];
+  return { idx: i, deviceId: "DEV-" + String(i + 1).padStart(5, "0"), name: `${zone}${floor}-${TYPES[i % 4].split(" ")[0]}-${(i % 97) + 1}`, type: TYPES[i % 4],
+    site: "DC-1", floor, zone, room: `${floor}0${1 + Math.floor(rand() * 8)}`, rack: `R-${String(1 + Math.floor(rand() * 40)).padStart(2, "0")}`, active: true };
+});
+const values = new Float32Array(N * NS_), baseline = new Float32Array(N * NS_), rstat = new Uint8Array(N * NS_);
+const dstat = new Uint8Array(N), lastSeen = new Float64Array(N), offline = new Uint8Array(N), anomaly = new Int16Array(N * NS_);
+const now0 = Date.now();
+for (let i = 0; i < N; i++) { lastSeen[i] = now0 - rnd(0, 3000); if (Math.random() < .038) { offline[i] = 1; lastSeen[i] = now0 - rnd(31000, 300000); }
+  SENSORS.forEach((s, j) => { const b = s.base + gauss() * s.sd * 4; baseline[i * NS_ + j] = b; values[i * NS_ + j] = b; }); }
+for (let k = 0; k < 260; k++) startAnomaly(Math.floor(Math.random() * N), Math.random() < .2);
+
+function startAnomaly(i, severe) { const j = Math.floor(Math.random() * NS_), s = SENSORS[j], lim = s.hi ?? s.lo, dir = s.hi ? 1 : -1;
+  const target = severe ? lim[1] + dir * Math.abs(lim[1] - lim[0]) * rnd(.1, .6) : lim[0] + (lim[1] - lim[0]) * rnd(.15, .85);
+  anomaly[i * NS_ + j] = Math.floor(rnd(3, 12)); values[i * NS_ + j] = target; }
+
+function readingStatus(j, v) { const s = SENSORS[j];
+  if (s.hi) { if (v >= s.hi[1]) return 2; if (v >= s.hi[0]) return 1; }
+  if (s.lo) { if (v <= s.lo[1]) return 2; if (v <= s.lo[0]) return 1; } return 0; }
+function deviceStatus(i, now) { if (now - lastSeen[i] > OFFLINE_MS) return 3; let w = 0; for (let j = 0; j < NS_; j++) w = Math.max(w, rstat[i * NS_ + j]); return w; }
+
+/* history (Sample) — fleet-level ring + per-device ring for the drawer */
+const H = 180, fleetHist = { ok: [], warn: [], crit: [], off: [], eps: [], t: [] };
+let focusHist = null; // { idx, samples: Float32Array[NS_][H], t: [] }
+const events = [], alerts = new Map(); let seq = 0, lastDelta = null, summary = null, liveOn = true;
+
+function synthHistory(i) { const t = [], samples = SENSORS.map(() => new Float32Array(H)), now = Date.now();
+  for (let k = 0; k < H; k++) t.push(now - (H - 1 - k) * 1000);
+  SENSORS.forEach((s, j) => { const end = values[i * NS_ + j], b = baseline[i * NS_ + j]; let v = b;
+    for (let k = 0; k < H; k++) { const w = k / (H - 1); v = v + gauss() * s.sd * 2; const mix = w > .7 ? (w - .7) / .3 : 0; samples[j][k] = v * (1 - mix) + end * mix; } });
+  return { idx: i, samples, t }; }
+
+/* =========================================================================
+   2. Simulator tick (stands in for server engine + SSE frames)
+   ========================================================================= */
+function tick() {
+  const now = Date.now(), rows = []; seq++;
+  if (Math.random() < .9) for (let k = 0; k < 4; k++) startAnomaly(Math.floor(Math.random() * N), Math.random() < .25);
+  for (let i = 0; i < N; i++) {
+    if (offline[i]) { if (Math.random() < .004) offline[i] = 0; else continue; }
+    else if (Math.random() < .0006) { offline[i] = 1; continue; }
+    if (Math.random() > CHANGE_RATIO && now - lastSeen[i] < 8000) continue;
+    lastSeen[i] = now;
+    for (let j = 0; j < NS_; j++) { const p = i * NS_ + j, s = SENSORS[j];
+      if (anomaly[p] > 0) { anomaly[p]--; values[p] += gauss() * s.sd * 1.5; }
+      else values[p] += (baseline[p] - values[p]) * .25 + gauss() * s.sd;
+      rstat[p] = readingStatus(j, values[p]); }
+    rows.push(i);
+  }
+  let transitions = 0;
+  for (let i = 0; i < N; i++) { const prev = dstat[i], next = deviceStatus(i, now); if (prev === next) continue; dstat[i] = next; transitions++;
+    const d = devices[i], worst = worstSensor(i), s = SENSORS[worst];
+    if (next === 0) { if (alerts.has(i)) { const a = alerts.get(i); alerts.delete(i); pushEvent({ kind: "cleared", idx: i, sev: 0, sensor: a.sensor, ts: now }); } continue; }
+    const kind = next === 3 ? "offline" : "raised", a = { id: `ALR-${seq}-${i}`, idx: i, deviceId: d.deviceId, sensor: next === 3 ? "—" : s.key, severity: STL[next], sev: next, value: next === 3 ? null : +values[i * NS_ + worst].toFixed(s.dp), raisedAt: now, ack: false };
+    alerts.set(i, a); pushEvent({ kind, idx: i, sev: next, sensor: a.sensor, value: a.value, ts: now });
+  }
+  lastDelta = { seq, ts: new Date(now).toISOString(), rows: rows.slice(0, 3).map((i) => [i, dstat[i], lastSeen[i], ...Array.from(values.subarray(i * NS_, i * NS_ + NS_), (v, j) => +v.toFixed(SENSORS[j].dp))]), totalRows: rows.length };
+  summary = summarize(now, rows.length);
+  for (const k of ["ok", "warn", "crit", "off"]) fleetHist[k].push(summary.byStatus[STL[ST[k]]]); fleetHist.eps.push(rows.length * NS_); fleetHist.t.push(now);
+  for (const k in fleetHist) if (fleetHist[k].length > H) fleetHist[k].shift();
+  if (focusHist) { const i = focusHist.idx; focusHist.t.push(now); focusHist.t.shift(); SENSORS.forEach((_, j) => { const a = focusHist.samples[j]; a.copyWithin(0, 1); a[H - 1] = values[i * NS_ + j]; }); }
+  return new Set(rows);
+}
+function worstSensor(i) { let w = 0, wj = 0; for (let j = 0; j < NS_; j++) { const r = rstat[i * NS_ + j]; if (r > w) { w = r; wj = j; } } return wj; }
+function pushEvent(e) { events.unshift(e); if (events.length > 400) events.length = 400; }
+function summarize(now, changed) {
+  const byStatus = { NORMAL: 0, WARNING: 0, CRITICAL: 0, OFFLINE: 0 }, bySensor = SENSORS.map(() => [0, 0]), byZone = {};
+  let tSum = 0, cSum = 0, hSum = 0, on = 0;
+  for (let i = 0; i < N; i++) { const st = dstat[i], d = devices[i], zk = d.zone + d.floor; byStatus[STL[st]]++;
+    const z = byZone[zk] ?? (byZone[zk] = [0, 0, 0, 0]); z[st]++;
+    if (st === 3) continue; on++; tSum += values[i * NS_]; hSum += values[i * NS_ + 1]; cSum += values[i * NS_ + 2];
+    for (let j = 0; j < NS_; j++) { const r = rstat[i * NS_ + j]; if (r) bySensor[j][r - 1]++; } }
+  return { ts: new Date(now).toISOString(), seq, total: N, byStatus, bySensor: Object.fromEntries(SENSORS.map((s, j) => [s.key, { warning: bySensor[j][0], critical: bySensor[j][1] }])),
+    byZone, averages: { temperature: +(tSum / on).toFixed(2), co2: Math.round(cSum / on), humidity: +(hSum / on).toFixed(1) }, changedDevices: changed };
+}
+
+/* =========================================================================
+   3. UI state + helpers
+   ========================================================================= */
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString("en-US");
+const css = (v) => getComputedStyle(document.body).getPropertyValue(v).trim();
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const txt = (parent, x, y, s, a = {}) => { const t = el("text", { x, y, "font-size": 10, fill: css("--muted"), ...a }, parent); t.textContent = s; return t; };
+const stColor = (k) => css({ ok: "--ok", warn: "--warn", crit: "--crit", off: "--off" }[typeof k === "number" ? STK[k] : k]);
+const ago = (ts) => { const s = Math.round((Date.now() - ts) / 1000); return s < 60 ? s + "s" : Math.round(s / 60) + "m"; };
+const fv = (j, v) => v.toFixed(SENSORS[j].dp);
+const UI = { filter: { status: null, zone: null, sensor: null, q: "" }, hidden: new Set(), areaHover: null, ringHover: null, hexHover: null, radarHover: null,
+  sort: { col: "sev", dir: -1 }, order: [], lastSort: 0, tableHover: false, selected: null, selSensor: 2, range: 60, erdSel: "Device", erdHover: null, changed: new Set() };
+
+const tip = $("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.classList.add("on"); const x = e.clientX + 14, y = e.clientY + 14, r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x, innerWidth - r.width - 8) + "px"; tip.style.top = Math.min(y, innerHeight - r.height - 8) + "px"; }
+function hideTip() { tip.classList.remove("on"); }
+const row = (c, l, v) => `<div class="r"><span><span class="sw" style="background:${c}"></span>${l}</span><b>${v}</b></div>`;
+
+function setFilter(k, v) { UI.filter[k] = UI.filter[k] === v ? null : v; UI.lastSort = 0; renderFilters(); drawAll(); }
+function renderFilters() { const f = UI.filter, box = $("filters"), chips = [];
+  if (f.status != null) chips.push(["status", "Status: " + STL[f.status]]); if (f.zone) chips.push(["zone", "Zone: " + f.zone[0] + " · Floor " + f.zone[1]]);
+  if (f.sensor != null) chips.push(["sensor", "Breaching: " + SENSORS[f.sensor].label]); if (f.q) chips.push(["q", `Search: “${f.q}”`]);
+  box.innerHTML = chips.length ? "Filters:" + chips.map(([k, l]) => `<span class="fchip" data-k="${k}">${l} ✕</span>`).join("") + `<span class="fchip" data-k="*">Clear all</span>` : "<span>Tip: click any chart element, KPI or alert to filter · click a device row to drill down · <kbd>/</kbd> search · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close</span>";
+  box.querySelectorAll(".fchip").forEach((c) => c.onclick = () => { const k = c.dataset.k; if (k === "*") UI.filter = { status: null, zone: null, sensor: null, q: "" }; else UI.filter[k] = k === "q" ? "" : null; if (k === "q" || k === "*") $("q").value = ""; UI.lastSort = 0; renderFilters(); drawAll(); });
+  document.querySelectorAll(".kpi").forEach((k) => k.classList.toggle("sel", k.dataset.f !== "all" && f.status === ST[k.dataset.f]));
+}
+function matches(i) { const f = UI.filter, d = devices[i];
+  if (f.status != null && dstat[i] !== f.status) return false;
+  if (f.zone && (d.zone !== f.zone[0] || d.floor !== +f.zone[1])) return false;
+  if (f.sensor != null && (dstat[i] === 3 || !rstat[i * NS_ + f.sensor])) return false;
+  if (f.q) { const q = f.q.toLowerCase(); if (!d.deviceId.toLowerCase().includes(q) && !(d.zone + d.floor).toLowerCase().includes(q) && !d.name.toLowerCase().includes(q) && !d.type.toLowerCase().includes(q)) return false; }
+  return true; }
+
+/* =========================================================================
+   4. Charts (D3-style maths, SVG rendering)
+   ========================================================================= */
+function spark(svg, data, color) { const w = svg.clientWidth || 120, h = svg.clientHeight || 44; svg.innerHTML = ""; if (data.length < 2) return;
+  const mn = Math.min(...data), mx = Math.max(...data), r = mx - mn || 1, id = "g" + Math.random().toString(36).slice(2, 7);
+  const pts = data.map((d, i) => [i / (data.length - 1) * w, h - 3 - (d - mn) / r * (h - 6)]);
+  const g = el("linearGradient", { id, x1: 0, y1: 0, x2: 0, y2: 1 }, el("defs", {}, svg));
+  el("stop", { offset: "0%", "stop-color": "currentColor", "stop-opacity": .35 }, g); el("stop", { offset: "100%", "stop-color": "currentColor", "stop-opacity": 0 }, g);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
+  el("path", { d: line + `L${w},${h}L0,${h}Z`, fill: `url(#${id})` }, svg); el("path", { d: line, fill: "none", stroke: color || "currentColor", "stroke-width": 1.5, class: "glow" }, svg); }
+const smooth = (p) => { let d = `M${p[0][0]},${p[0][1]}`; for (let i = 1; i < p.length; i++) { const [x0, y0] = p[i - 1], [x1, y1] = p[i], cx = (x0 + x1) / 2; d += `C${cx},${y0} ${cx},${y1} ${x1},${y1}`; } return d; };
+const arcPath = (cx, cy, r, a0, a1) => { const P = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)]; const [x0, y0] = P(a0), [x1, y1] = P(a1); return `M${x0},${y0}A${r},${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1},${y1}`; };
+
+function lineChart(svg, { series, t, h, bands = [], yFmt = (v) => fmt(v), hoverKey, onHover, legend = true, unit = "" }) {
+  const w = svg.clientWidth, pad = { l: 44, r: 10, t: 22, b: 22 }; svg.innerHTML = "";
+  const vis = series.filter((s) => !UI.hidden.has(s.key) || !legend), all = vis.flatMap((s) => s.data).concat(bands.flatMap((b) => [b.from, b.to].filter(isFinite)));
+  let mn = Math.min(...all), mx = Math.max(...all); if (!isFinite(mn)) { mn = 0; mx = 1; } const span = (mx - mn) || 1; mn -= span * .08; mx += span * .12; if (series[0]?.zero) mn = 0;
+  const n = t.length, x = (i) => pad.l + i / (n - 1) * (w - pad.l - pad.r), y = (v) => h - pad.b - (v - mn) / (mx - mn) * (h - pad.t - pad.b);
+  const defs = el("defs", {}, svg), clip = "c" + Math.random().toString(36).slice(2, 7); el("rect", { x: pad.l, y: pad.t, width: w - pad.l - pad.r, height: h - pad.t - pad.b }, el("clipPath", { id: clip }, defs));
+  bands.forEach((b) => { const y0 = y(Math.min(mx, b.to)), y1 = y(Math.max(mn, b.from)); if (y1 > y0) el("rect", { x: pad.l, y: y0, width: w - pad.l - pad.r, height: y1 - y0, fill: stColor(b.k), "fill-opacity": .09, "clip-path": `url(#${clip})` }, svg);
+    if (b.line != null && b.line > mn && b.line < mx) { el("line", { x1: pad.l, x2: w - pad.r, y1: y(b.line), y2: y(b.line), stroke: stColor(b.k), "stroke-dasharray": "4 4", "stroke-opacity": .8 }, svg); txt(svg, w - pad.r - 2, y(b.line) - 4, b.label, { "text-anchor": "end", fill: stColor(b.k) }); } });
+  for (let i = 0; i <= 4; i++) { const v = mn + (mx - mn) * i / 4, yy = y(v); el("line", { x1: pad.l, x2: w - pad.r, y1: yy, y2: yy, stroke: css("--border"), "stroke-dasharray": document.body.classList.contains("C") ? "2 4" : "" }, svg); txt(svg, pad.l - 6, yy + 3, yFmt(v), { "text-anchor": "end" }); }
+  vis.forEach((s) => { const c = s.color, gid = "ga" + Math.random().toString(36).slice(2, 7), g = el("linearGradient", { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el("stop", { offset: "0%", "stop-color": c, "stop-opacity": .35 }, g); el("stop", { offset: "100%", "stop-color": c, "stop-opacity": 0 }, g);
+    const pts = s.data.map((v, i) => [x(i), y(v)]), p = smooth(pts);
+    el("path", { d: p + `L${x(n - 1)},${h - pad.b}L${x(0)},${h - pad.b}Z`, fill: `url(#${gid})`, "clip-path": `url(#${clip})` }, svg);
+    el("path", { d: p, fill: "none", stroke: c, "stroke-width": 2, class: "glow", style: `color:${c}`, "clip-path": `url(#${clip})` }, svg);
+    const last = pts[pts.length - 1]; el("circle", { cx: last[0], cy: last[1], r: 3.5, fill: c, class: "glow", style: `color:${c}` }, svg); });
+  [0, Math.floor((n - 1) / 2), n - 1].forEach((i, k) => txt(svg, x(i), h - 5, k === 2 ? "now" : "-" + Math.round((t[n - 1] - t[i]) / 1000) + "s", { "text-anchor": k === 0 ? "start" : k === 2 ? "end" : "middle" }));
+  if (legend) series.forEach((s, k) => { const g = el("g", { class: "hit", opacity: UI.hidden.has(s.key) ? .35 : 1 }, svg); el("rect", { x: pad.l + k * 86, y: 4, width: 80, height: 16, fill: "transparent" }, g);
+    el("rect", { x: pad.l + 2 + k * 86, y: 8, width: 8, height: 8, rx: 2, fill: s.color }, g); txt(g, pad.l + 14 + k * 86, 16, s.label, { "font-size": 11, fill: css("--text") });
+    g.onclick = () => { UI.hidden.has(s.key) ? UI.hidden.delete(s.key) : UI.hidden.add(s.key); drawAll(); }; });
+  const hi = UI[hoverKey];
+  if (hi != null && hi < n) { const xx = x(hi); el("line", { x1: xx, x2: xx, y1: pad.t, y2: h - pad.b, stroke: css("--text"), "stroke-opacity": .35 }, svg);
+    vis.forEach((s) => el("circle", { cx: xx, cy: y(s.data[hi]), r: 4.5, fill: css("--panel-solid"), stroke: s.color, "stroke-width": 2 }, svg)); }
+  const hit = el("rect", { x: pad.l, y: pad.t, width: w - pad.l - pad.r, height: h - pad.t - pad.b, fill: "transparent" }, svg);
+  hit.onmousemove = (e) => { const r = svg.getBoundingClientRect(), i = clamp(Math.round((e.clientX - r.left - pad.l) / (w - pad.l - pad.r) * (n - 1)), 0, n - 1); UI[hoverKey] = i;
+    showTip(e, `<b>${new Date(t[i]).toLocaleTimeString("en-GB")}</b>` + vis.map((s) => row(s.color, s.label, yFmt(s.data[i]) + unit)).join("") + (onHover ? onHover(i) : "")); drawAll(true); };
+  hit.onmouseleave = () => { UI[hoverKey] = null; hideTip(); drawAll(true); };
+}
+
+function drawArea() {
+  const svg = $("area"), w = svg.clientWidth, h = 230, pad = { l: 40, r: 44, t: 26, b: 20 }; svg.innerHTML = "";
+  const B = 3, nb = Math.floor(fleetHist.t.length / B), off0 = fleetHist.t.length - nb * B, bk = [];
+  for (let b = 0; b < nb; b++) { const s0 = off0 + b * B, e = s0 + B, avg = (k) => fleetHist[k].slice(s0, e).reduce((a, v) => a + v, 0) / B;
+    bk.push({ t: fleetHist.t[e - 1], ok: avg("ok"), warn: avg("warn"), crit: avg("crit"), off: avg("off") }); }
+  const iw = w - pad.l - pad.r, splitY = pad.t + (h - pad.t - pad.b) * .36, baseY = h - pad.b, bw = iw / nb, HC = document.body.classList.contains("C");
+  const keys = [["crit", "Critical"], ["warn", "Warning"], ["off", "Offline"]], vis = keys.filter(([k]) => !UI.hidden.has(k));
+  const maxS = Math.max(1, ...bk.map((b) => vis.reduce((a, [k]) => a + b[k], 0))) * 1.1, yb = (v) => v / maxS * (baseY - splitY - 10);
+  for (let i = 0; i <= 3; i++) { const yy = baseY - (baseY - splitY - 10) * i / 3; el("line", { x1: pad.l, x2: w - pad.r, y1: yy, y2: yy, stroke: css("--border"), "stroke-dasharray": HC ? "2 4" : "" }, svg); txt(svg, pad.l - 6, yy + 3, fmt(maxS * i / 3), { "text-anchor": "end" }); }
+  bk.forEach((b, i) => { let y = baseY; const on = UI.areaHover == null || UI.areaHover === i;
+    vis.forEach(([k]) => { const hh = yb(b[k]); el("rect", { x: pad.l + i * bw + .75, y: y - hh, width: Math.max(1, bw - 1.5), height: hh, fill: stColor(k), opacity: on ? (k === "crit" ? 1 : .8) : .3 }, svg); y -= hh; }); });
+  const hv = bk.map((b) => b.ok / N * 100), hmn = Math.min(...hv) - .25, hmx = Math.max(...hv) + .25, yh = (v) => pad.t + (1 - (v - hmn) / (hmx - hmn)) * (splitY - pad.t - 8), acc = css("--accent");
+  el("line", { x1: pad.l, x2: w - pad.r, y1: splitY - 2, y2: splitY - 2, stroke: css("--border") }, svg);
+  const gid = "hg" + Math.random().toString(36).slice(2, 7), g = el("linearGradient", { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, el("defs", {}, svg));
+  el("stop", { offset: "0%", "stop-color": acc, "stop-opacity": .35 }, g); el("stop", { offset: "100%", "stop-color": acc, "stop-opacity": 0 }, g);
+  const pts = hv.map((v, i) => [pad.l + (i + .5) * bw, yh(v)]), p = smooth(pts);
+  el("path", { d: p + `L${pts.at(-1)[0]},${splitY - 2}L${pts[0][0]},${splitY - 2}Z`, fill: `url(#${gid})` }, svg);
+  el("path", { d: p, fill: "none", stroke: acc, "stroke-width": 2, class: "glow", style: `color:${acc}` }, svg);
+  const last = pts.at(-1); el("circle", { cx: last[0], cy: last[1], r: 3.5, fill: acc, class: "glow", style: `color:${acc}` }, svg);
+  if (Math.abs(yh(hmx) + 8 - last[1]) > 14) txt(svg, w - pad.r + 6, yh(hmx) + 8, hmx.toFixed(1) + "%"); if (Math.abs(yh(hmn) - last[1]) > 14) txt(svg, w - pad.r + 6, yh(hmn), hmn.toFixed(1) + "%");
+  txt(svg, w - pad.r + 6, last[1] + 4, hv.at(-1).toFixed(2) + "%", { fill: acc, "font-weight": 600 });
+  txt(svg, pad.l, pad.t - 4 + 12, "HEALTH INDEX · % devices normal", { "font-size": 9 }); txt(svg, pad.l + 4, splitY + 10, "INCIDENTS · avg devices per 3 s", { "font-size": 9 });
+  [0, Math.floor(nb / 2), nb - 1].forEach((i, k) => txt(svg, pad.l + (i + .5) * bw, h - 5, k === 2 ? "now" : "-" + Math.round((bk.at(-1).t - bk[i].t) / 1000) + "s", { "text-anchor": k === 0 ? "start" : k === 2 ? "end" : "middle" }));
+  keys.forEach(([k, l], n) => { const x0 = w - pad.r - (3 - n) * 78, gg = el("g", { class: "hit", opacity: UI.hidden.has(k) ? .35 : 1 }, svg); el("rect", { x: x0, y: 2, width: 74, height: 16, fill: "transparent" }, gg);
+    el("rect", { x: x0, y: 6, width: 8, height: 8, rx: HC ? 0 : 2, fill: stColor(k) }, gg); txt(gg, x0 + 12, 14, l, { "font-size": 11, fill: css("--text") });
+    gg.onclick = () => { UI.hidden.has(k) ? UI.hidden.delete(k) : UI.hidden.add(k); drawAll(); }; });
+  const hi = UI.areaHover; if (hi != null && hi < nb) { const xx = pad.l + (hi + .5) * bw; el("line", { x1: xx, x2: xx, y1: pad.t, y2: baseY, stroke: css("--text"), "stroke-opacity": .35 }, svg); el("circle", { cx: xx, cy: yh(hv[hi]), r: 4.5, fill: css("--panel-solid"), stroke: acc, "stroke-width": 2 }, svg); }
+  const hit = el("rect", { x: pad.l, y: pad.t, width: iw, height: baseY - pad.t, fill: "transparent" }, svg);
+  hit.onmousemove = (e) => { const r = svg.getBoundingClientRect(), i = clamp(Math.floor((e.clientX - r.left - pad.l) / bw), 0, nb - 1), b = bk[i]; UI.areaHover = i;
+    showTip(e, `<b>${new Date(b.t).toLocaleTimeString("en-GB")}</b>` + row(acc, "Health", hv[i].toFixed(2) + "%") + keys.map(([k, l]) => row(stColor(k), l, fmt(b[k]))).join("")); drawAll(true); };
+  hit.onmouseleave = () => { UI.areaHover = null; hideTip(); drawAll(true); };
+}
+
+const matrixOrder = devices.map((d) => d.idx).sort((a, b) => devices[a].floor - devices[b].floor || devices[a].zone.localeCompare(devices[b].zone) || a - b), MCOLS = 125;
+let blink = false;
+function drawRing() {
+  const cv = $("matrix"), w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(devicePixelRatio, 2); if (!w) return;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const rows = Math.ceil(N / MCOLS), cw = w / MCOLS, ch = h / rows, cs = [0, 1, 2, 3].map((k) => stColor(k));
+  const filtered = UI.filter.status != null || UI.filter.zone || UI.filter.sensor != null || UI.filter.q, hs = UI.ringHover;
+  blink = !blink; let prevFloor = 0;
+  for (let k = 0; k < N; k++) { const i = matrixOrder[k], st = dstat[i], x = (k % MCOLS) * cw, y = Math.floor(k / MCOLS) * ch;
+    if (devices[i].floor !== prevFloor) { prevFloor = devices[i].floor; if (k) { g.globalAlpha = 1; g.fillStyle = css("--accent"); g.fillRect(x, y - .5, w - x, 1); g.fillRect(0, y + ch - .5, x, 1); } }
+    let a = st === 0 ? .3 : st === 2 ? (blink ? 1 : .7) : .95; if (filtered && !matches(i)) a = .06; if (hs != null && hs !== st) a *= .2;
+    g.globalAlpha = a; g.fillStyle = cs[st]; g.fillRect(x + .25, y + .25, cw - .5, ch - .5); }
+  g.globalAlpha = 1;
+  if (UI.matrixHover != null) { const k = UI.matrixHover; g.strokeStyle = css("--text"); g.lineWidth = 1.5; g.strokeRect((k % MCOLS) * cw - 2, Math.floor(k / MCOLS) * ch - 2, cw + 4, ch + 4); }
+
+  const svg = $("segbar"), sw = svg.clientWidth; svg.innerHTML = ""; const counts = [0, 1, 2, 3].map((k) => summary.byStatus[STL[k]]);
+  let x = 0; const widths = counts.map((c, k) => k === 0 ? 0 : Math.max(44, c / N * sw * 4)); widths[0] = Math.max(60, sw - widths[1] - widths[2] - widths[3]);
+  const scale = sw / widths.reduce((a, b) => a + b, 0);
+  counts.forEach((c, k) => { const ww = widths[k] * scale - 2, sel = UI.filter.status === k, hov = hs === k, gg = el("g", { class: "hit", opacity: UI.filter.status != null && !sel ? .45 : 1 }, svg);
+    el("rect", { x: x, y: 2, width: ww, height: 22, rx: document.body.classList.contains("C") ? 0 : 5, fill: cs[k], "fill-opacity": hov || sel ? .9 : .6, stroke: sel ? css("--text") : "none", "stroke-width": 1.5 }, gg);
+    txt(gg, x + ww / 2, 17, fmt(c), { "text-anchor": "middle", "font-size": 11, "font-weight": 600, fill: k === 0 ? css("--text") : "#0b0b0b" });
+    txt(gg, x + ww / 2, 40, ICON[k] + " " + (k === 0 ? STL[k] + " " + (c / N * 100).toFixed(1) + "%" : STL[k].slice(0, 4)), { "text-anchor": "middle", "font-size": 9, fill: cs[k] });
+    gg.onmouseenter = () => { UI.ringHover = k; drawAll(true); }; gg.onmouseleave = () => { UI.ringHover = null; drawAll(true); }; gg.onclick = () => setFilter("status", k); x += ww + 2; });
+}
+{ const cv = $("matrix"), at = (e) => { const r = cv.getBoundingClientRect(), rows = Math.ceil(N / MCOLS), c = Math.floor((e.clientX - r.left) / r.width * MCOLS), rr = Math.floor((e.clientY - r.top) / r.height * rows), k = rr * MCOLS + c; return k >= 0 && k < N && c >= 0 && c < MCOLS ? k : null; };
+  cv.onmousemove = (e) => { const k = at(e); UI.matrixHover = k; if (k == null) return hideTip(); const i = matrixOrder[k], d = devices[i], st = dstat[i], w = worstSensor(i), s = SENSORS[w];
+    showTip(e, `<b style="color:${stColor(st)}">${ICON[st]} ${d.deviceId}</b><div style="color:var(--muted)">F${d.floor} › Zone ${d.zone} › ${d.rack}</div>` + (st === 3 ? row(stColor(3), "Last seen", ago(lastSeen[i]) + " ago") : row(stColor(rstat[i * NS_ + w]), s.label, fv(w, values[i * NS_ + w]) + " " + s.unit))); drawAll(true); };
+  cv.onmouseleave = () => { UI.matrixHover = null; hideTip(); drawAll(true); };
+  cv.onclick = (e) => { const k = at(e); if (k != null) { hideTip(); openDrawer(matrixOrder[k], worstSensor(matrixOrder[k])); } }; }
+
+function drawHex() {
+  const svg = $("hex"), w = svg.clientWidth, h = 250; svg.innerHTML = "";
+  const r = Math.min((w - 40) / (6 * 1.75 + .9), (h - 30) / (4 * 1.55 + .6)), hw = Math.sqrt(3) * r, ox = (w - (6 * hw + hw / 2)) / 2 + hw / 2 + 10, oy = r + 20;
+  ZONES.split("").forEach((z, i) => txt(svg, ox + i * hw + hw / 4, 12, z, { "text-anchor": "middle" }));
+  for (let f = 1; f <= FLOORS; f++) { txt(svg, 4, oy + (f - 1) * r * 1.5 + 4, "F" + f);
+    for (let c = 0; c < 6; c++) { const zk = ZONES[c] + f, zc = summary.byZone[zk] ?? [0, 0, 0, 0], tot = zc.reduce((a, b) => a + b, 0) || 1;
+      const k = zoneStatus(zk), col = stColor(k), sel = UI.filter.zone === zk, hov = UI.hexHover === zk;
+      const cx = ox + c * hw + (f % 2 ? 0 : hw / 2), cy = oy + (f - 1) * r * 1.5, rr = r - 2 + (hov ? 3 : 0);
+      const pts = Array.from({ length: 6 }, (_, j) => { const an = Math.PI / 180 * (60 * j - 30); return `${cx + rr * Math.cos(an)},${cy + rr * Math.sin(an)}`; }).join(" ");
+      const g = el("g", { class: "hit", style: `color:${col}`, opacity: UI.filter.zone && !sel ? .4 : 1 }, svg);
+      el("polygon", { points: pts, fill: col, "fill-opacity": k === 0 ? .12 : .3, stroke: sel ? css("--text") : col, "stroke-opacity": k === 0 && !sel ? .45 : 1, "stroke-width": sel || k === 2 ? 2 : 1, class: k === 0 ? "" : "glow" }, g);
+      txt(g, cx, cy + 4, zk, { "text-anchor": "middle", fill: css("--text") });
+      if (k === 2) { const p = el("polygon", { points: pts, fill: "none", stroke: col }, g); el("animate", { attributeName: "stroke-opacity", values: "1;0;1", dur: "1.8s", repeatCount: "indefinite" }, p); }
+      g.onmousemove = (e) => { if (UI.hexHover !== zk) { UI.hexHover = zk; drawAll(true); } showTip(e, `<b>Zone ${ZONES[c]} · Floor ${f}</b>` + [0, 1, 2, 3].map((s) => row(stColor(s), STL[s], fmt(zc[s]))).join("") + `<div style="color:var(--muted);margin-top:4px">click to filter table</div>`); };
+      g.onmouseleave = () => { UI.hexHover = null; hideTip(); drawAll(true); }; g.onclick = () => setFilter("zone", zk); } }
+}
+
+function drawRadar() {
+  const svg = $("radar"), w = svg.clientWidth, h = 250, cx = w / 2, cy = h / 2 + 6, R = Math.min(w, h) / 2 - 32; svg.innerHTML = "";
+  const data = SENSORS.map((s) => summary.bySensor[s.key]), tot = data.map((d) => d.warning + d.critical), mx = Math.max(60, ...tot) * 1.1, ang = (i) => -Math.PI / 2 + i / NS_ * Math.PI * 2;
+  for (let l = 1; l <= 4; l++) { el("polygon", { points: SENSORS.map((_, i) => `${cx + R * l / 4 * Math.cos(ang(i))},${cy + R * l / 4 * Math.sin(ang(i))}`).join(" "), fill: "none", stroke: css("--border") }, svg); txt(svg, cx + 3, cy - R * l / 4 + 10, fmt(mx * l / 4), { "font-size": 9 }); }
+  const P = (i, v) => [cx + R * v / mx * Math.cos(ang(i)), cy + R * v / mx * Math.sin(ang(i))];
+  const acc = css("--accent"), crit = stColor("crit");
+  el("polygon", { points: tot.map((v, i) => P(i, v).join(",")).join(" "), fill: acc, "fill-opacity": .16, stroke: acc, "stroke-width": 2, class: "glow", style: `color:${acc}` }, svg);
+  el("polygon", { points: data.map((d, i) => P(i, d.critical).join(",")).join(" "), fill: crit, "fill-opacity": .22, stroke: crit, "stroke-width": 1.5, class: "glow", style: `color:${crit}` }, svg);
+  SENSORS.forEach((s, i) => { const sel = UI.filter.sensor === i, hov = UI.radarHover === i, g = el("g", { class: "hit" }, svg);
+    el("line", { x1: cx, y1: cy, x2: cx + R * Math.cos(ang(i)), y2: cy + R * Math.sin(ang(i)), stroke: sel || hov ? acc : css("--border"), "stroke-width": sel || hov ? 2 : 1 }, g);
+    const [px, py] = P(i, tot[i]); el("circle", { cx: px, cy: py, r: hov || sel ? 6 : 3.5, fill: data[i].critical ? crit : acc, class: "glow", style: `color:${acc}` }, g);
+    const lx = cx + (R + 18) * Math.cos(ang(i)), ly = cy + (R + 18) * Math.sin(ang(i)); el("circle", { cx: lx, cy: ly - 3, r: 16, fill: "transparent" }, g);
+    txt(g, lx, ly + 1, s.label, { "text-anchor": "middle", fill: sel || hov ? css("--text") : css("--muted"), "font-weight": sel ? 600 : 400 });
+    g.onmousemove = (e) => { if (UI.radarHover !== i) { UI.radarHover = i; drawAll(true); } showTip(e, `<b>${s.label}</b> <span style="color:var(--muted)">${s.unit}</span>` + row(stColor("warn"), "Warning", fmt(data[i].warning)) + row(crit, "Critical", fmt(data[i].critical)) + row(acc, "Thresholds", (s.hi ? "≥ " + s.hi.join(" / ") : "") + (s.lo ? " ≤ " + s.lo.join(" / ") : ""))); };
+    g.onmouseleave = () => { UI.radarHover = null; hideTip(); drawAll(true); }; g.onclick = () => setFilter("sensor", i); });
+  el("rect", { x: 8, y: 8, width: 8, height: 8, fill: acc }, svg); txt(svg, 20, 16, "warning + critical", { "font-size": 11, fill: css("--text") });
+  el("rect", { x: 8, y: 24, width: 8, height: 8, fill: crit }, svg); txt(svg, 20, 32, "critical only", { "font-size": 11, fill: css("--text") });
+}
+
+function drawGauges() {
+  const svg = $("gauges"), w = svg.clientWidth, h = 170; svg.innerHTML = "";
+  const G = [{ j: 0, v: summary.averages.temperature, min: 10, max: 45 }, { j: 2, v: summary.averages.co2, min: 300, max: 2000 }, { j: 1, v: summary.averages.humidity, min: 0, max: 100 }];
+  const cw = w / 3, a0 = Math.PI * .75, a1 = Math.PI * 2.25;
+  G.forEach((g, i) => { const s = SENSORS[g.j], cx = cw * i + cw / 2, cy = 80, R = Math.min(cw / 2 - 12, 60), f = (v) => a0 + (clamp(v, g.min, g.max) - g.min) / (g.max - g.min) * (a1 - a0);
+    el("path", { d: arcPath(cx, cy, R, a0, a1), fill: "none", stroke: css("--border"), "stroke-width": 8, "stroke-linecap": "round" }, svg);
+    el("path", { d: arcPath(cx, cy, R, f(s.hi[0]), f(s.hi[1])), fill: "none", stroke: stColor("warn"), "stroke-opacity": .35, "stroke-width": 8 }, svg);
+    el("path", { d: arcPath(cx, cy, R, f(s.hi[1]), a1), fill: "none", stroke: stColor("crit"), "stroke-opacity": .35, "stroke-width": 8 }, svg);
+    const k = readingStatus(g.j, g.v), c = k ? stColor(k) : css("--accent");
+    el("path", { d: arcPath(cx, cy, R, a0, f(g.v)), fill: "none", stroke: c, "stroke-width": 8, "stroke-linecap": "round", class: "glow", style: `color:${c}` }, svg);
+    const nx = cx + (R - 14) * Math.cos(f(g.v)), ny = cy + (R - 14) * Math.sin(f(g.v)); el("line", { x1: cx, y1: cy, x2: nx, y2: ny, stroke: c, "stroke-width": 2, "stroke-linecap": "round", style: "transition:all .6s" }, svg); el("circle", { cx, cy, r: 3, fill: c }, svg);
+    txt(svg, cx, cy + 30, g.v >= 100 ? fmt(g.v) : g.v.toFixed(1), { "text-anchor": "middle", "font-size": 18, "font-weight": 600, fill: css("--text") });
+    txt(svg, cx, cy + 44, s.unit, { "text-anchor": "middle" }); txt(svg, cx, h - 6, "Avg " + s.label.toLowerCase(), { "text-anchor": "middle", "font-size": 11, fill: css("--text") }); });
+}
+
+/* =========================================================================
+   5. Alerts, feed, table, drawer
+   ========================================================================= */
+let alertSig = "";
+function drawAlerts() {
+  const list = [...alerts.values()].filter((a) => matches(a.idx)).sort((a, b) => b.sev - a.sev || b.raisedAt - a.raisedAt), top = list.filter((a) => a.sev !== 3 || list.length < 7).slice(0, 7);
+  $("alert-count").textContent = `${fmt(list.filter((a) => a.sev === 2).length)} critical · ${fmt(list.filter((a) => a.sev === 1).length)} warning`;
+  const sig = top.map((a) => a.id).join(); const box = $("alerts");
+  if (sig !== alertSig) { alertSig = sig; box.innerHTML = "";
+    top.forEach((a) => { const d = devices[a.idx], s = SENSORS.find((x) => x.key === a.sensor), div = document.createElement("div"); div.className = "alert"; div.style.setProperty("--sc", stColor(a.sev));
+      const lim = s ? (s.hi && a.value >= s.hi[0] ? "> " + (a.sev === 2 ? s.hi[1] : s.hi[0]) : s.lo ? "< " + (a.sev === 2 ? s.lo[1] : s.lo[0]) : "") : "";
+      div.innerHTML = `<div class="bar"></div><div><div class="t"><b>${ICON[a.sev]} ${s ? s.label : "Offline"}</b>${s ? `${a.value} ${s.unit} ${lim}` : "no report for 30 s"}</div><div class="s">${d.deviceId} · F${d.floor} › Zone ${d.zone} › ${d.rack}</div></div><div class="age" data-t="${a.raisedAt}">${ago(a.raisedAt)}</div>`;
+      div.onclick = () => openDrawer(a.idx, s ? SENSORS.indexOf(s) : 0); box.appendChild(div); }); }
+  else box.querySelectorAll(".age").forEach((e) => e.textContent = ago(+e.dataset.t));
+  $("feed").innerHTML = events.slice(0, 12).map((e) => { const d = devices[e.idx]; return `<div style="--sc:${stColor(e.kind === "cleared" ? 0 : e.sev)}"><i>${new Date(e.ts).toLocaleTimeString("en-GB")} ${e.kind.toUpperCase().padEnd(8)}</i> ${d.deviceId} ${e.sensor !== "—" ? e.sensor : ""} ${e.value ?? ""}</div>`; }).join("");
+}
+
+const COLS = [{ k: "sev", l: "STATUS" }, { k: "id", l: "DEVICE" }, { k: "type", l: "TYPE" }, { k: "loc", l: "LOCATION" }, { k: "worst", l: "WORST" }, { k: 0, l: "TEMP °C" }, { k: 1, l: "HUM %" }, { k: 2, l: "CO2" }, { k: 5, l: "PM2.5" }, { k: 8, l: "NOISE dB" }, { k: "seen", l: "LAST SEEN" }];
+function sortKey(i, c) { if (c === "sev") return dstat[i] === 3 ? 1.5 : dstat[i]; if (c === "id") return -i; if (c === "type") return devices[i].type; if (c === "loc") return devices[i].zone + devices[i].floor; if (c === "worst") return rstat[i * NS_ + worstSensor(i)]; if (c === "seen") return -lastSeen[i]; return values[i * NS_ + c]; }
+function drawTable() {
+  $("thead").innerHTML = COLS.map((c) => `<th data-k="${c.k}" class="${UI.sort.col === c.k ? "sorted" : ""}">${c.l}${UI.sort.col === c.k ? (UI.sort.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
+  $("thead").querySelectorAll("th").forEach((th) => th.onclick = () => { const k = isNaN(+th.dataset.k) ? th.dataset.k : +th.dataset.k; UI.sort = { col: k, dir: UI.sort.col === k ? -UI.sort.dir : -1 }; UI.lastSort = 0; drawTable(); });
+  const now = Date.now();
+  if (!UI.tableHover && now - UI.lastSort > 3000 || UI.lastSort === 0) { const ids = []; for (let i = 0; i < N; i++) if (matches(i)) ids.push(i);
+    const { col, dir } = UI.sort; ids.sort((a, b) => { const x = sortKey(a, col), y = sortKey(b, col); return (x > y ? 1 : x < y ? -1 : a - b) * dir; }); UI.order = ids; UI.lastSort = now; }
+  $("tcount").textContent = `showing ${Math.min(60, UI.order.length)} of ${fmt(UI.order.length)} · virtualized in the real build`;
+  $("rows").innerHTML = UI.order.length ? UI.order.slice(0, 60).map((i) => { const d = devices[i], st = dstat[i], w = worstSensor(i), stale = now - lastSeen[i] > STALE_MS && st !== 3, ch = UI.changed.has(i);
+    const cell = (j) => { const p = i * NS_ + j, r = rstat[p]; return `<td class="${r === 2 ? "c" : r === 1 ? "w" : ""} ${ch && st !== 3 ? "flash" : ""}">${st === 3 ? "—" : fv(j, values[p])}</td>`; };
+    return `<tr data-i="${i}" class="${st === 3 ? "off" : ""} ${UI.selected === i ? "selrow" : ""}" style="${stale ? "opacity:.6" : ""}"><td><span class="st" style="--sc:${stColor(st)}">${ICON[st]} ${STL[st]}</span></td><td>${d.deviceId}</td><td style="font-family:var(--font)">${d.type}</td><td style="font-family:var(--font)">F${d.floor} › ${d.zone} › ${d.rack}</td>` +
+      `<td>${st === 3 || !rstat[i * NS_ + w] ? "—" : SENSORS[w].label}</td>` + [0, 1, 2, 5, 8].map(cell).join("") + `<td>${stale ? "⏱ " : ""}${ago(lastSeen[i])}</td></tr>`; }).join("")
+    : `<tr><td colspan="11" style="text-align:center;padding:40px;font-family:var(--font);color:var(--muted)">No devices match these filters · <a href="#" id="clr" style="color:var(--accent)">clear filters</a></td></tr>`;
+  const c = $("clr"); if (c) c.onclick = (e) => { e.preventDefault(); UI.filter = { status: null, zone: null, sensor: null, q: "" }; $("q").value = ""; renderFilters(); drawAll(); };
+  setTimeout(() => $("rows").querySelectorAll(".flash").forEach((td) => td.classList.remove("flash")), 650);
+}
+$("rows").onclick = (e) => { const tr = e.target.closest("tr[data-i]"); if (tr) openDrawer(+tr.dataset.i); };
+$("tablepanel").onmouseenter = () => { UI.tableHover = true; $("tablepanel").classList.add("tablepaused"); };
+$("tablepanel").onmouseleave = () => { UI.tableHover = false; $("tablepanel").classList.remove("tablepaused"); };
+
+function openDrawer(i, sensor) { UI.selected = i; Twin.focus(i); if (sensor != null) UI.selSensor = sensor; focusHist = synthHistory(i); $("drawer").classList.add("open"); $("scrim").classList.add("on"); drawDrawer(); drawTable(); }
+function closeDrawer() { if (UI.selected != null) Twin.focus(null); UI.selected = null; focusHist = null; $("drawer").classList.remove("open"); $("scrim").classList.remove("on"); hideTip(); drawTable(); }
+$("scrim").onclick = closeDrawer;
+function drawDrawer() {
+  const i = UI.selected; if (i == null) return; const d = devices[i], st = dstat[i], j = UI.selSensor, s = SENSORS[j], dr = $("drawer");
+  if (!dr.dataset.built || +dr.dataset.built !== i) { dr.dataset.built = i;
+    dr.innerHTML = `<button class="close" id="dclose" aria-label="Close">Esc ✕</button><div class="dhead" id="dhead"></div><div class="tiles" id="tiles"></div>
+      <div class="panel" style="padding:14px"><div class="ptitle"><b id="tsTitle"></b><div class="seg" id="range">${[30, 60, 180].map((r) => `<button data-r="${r}">${r < 60 ? r + "s" : r / 60 + "m"}</button>`).join("")}</div></div><svg id="ts" height="240" width="100%"></svg></div>
+      <div class="panel" style="padding:14px;margin-top:14px"><div class="ptitle"><b>Device timeline</b><span class="chip">events</span></div><div class="timeline" id="tl"></div></div>
+      <div class="panel" style="padding:14px;margin-top:14px"><div class="ptitle"><b>Metadata</b><span class="chip">GET /api/devices/${d.deviceId}</span></div><div class="kv" id="meta"></div></div>`;
+    $("dclose").onclick = closeDrawer; $("range").onclick = (e) => { const b = e.target.closest("button"); if (b) { UI.range = +b.dataset.r; drawDrawer(); } }; }
+  const dh = $("dhead"); dh.style.setProperty("--sc", stColor(st));
+  dh.innerHTML = `<span class="st" style="--sc:${stColor(st)}">${ICON[st]} ${STL[st]}</span><h2>${d.deviceId} <span style="color:var(--muted);font-weight:400;font-size:14px">${d.type}</span></h2><div class="crumb">${d.site} › Floor ${d.floor} › Zone ${d.zone} › Room ${d.room} › ${d.rack} · last seen ${ago(lastSeen[i])} ago</div>`;
+  $("tiles").innerHTML = SENSORS.map((x, k) => { const r = st === 3 ? 3 : rstat[i * NS_ + k]; return `<div class="tile ${k === j ? "on" : ""}" data-k="${k}" style="--sc:${r ? stColor(r) : css("--text")}"><div class="l">${x.label}</div><div class="v">${st === 3 ? "—" : fv(k, values[i * NS_ + k])} <span style="font-size:10px;color:var(--muted)">${x.unit}</span></div><svg id="tsp${k}"></svg></div>`; }).join("");
+  $("tiles").querySelectorAll(".tile").forEach((t) => t.onclick = () => { UI.selSensor = +t.dataset.k; drawDrawer(); });
+  SENSORS.forEach((_, k) => spark($("tsp" + k), Array.from(focusHist.samples[k].subarray(H - 40))));
+  $("range").querySelectorAll("button").forEach((b) => b.classList.toggle("on", +b.dataset.r === UI.range));
+  $("tsTitle").textContent = `${s.label} · ${s.unit} · last ${UI.range < 60 ? UI.range + "s" : UI.range / 60 + "m"}`;
+  const bands = []; if (s.hi) bands.push({ k: "warn", from: s.hi[0], to: s.hi[1], line: s.hi[0], label: "warn " + s.hi[0] }, { k: "crit", from: s.hi[1], to: 1e9, line: s.hi[1], label: "crit " + s.hi[1] });
+  if (s.lo) bands.push({ k: "warn", from: s.lo[1], to: s.lo[0], line: s.lo[0], label: "warn " + s.lo[0] }, { k: "crit", from: -1e9, to: s.lo[1], line: s.lo[1], label: "crit " + s.lo[1] });
+  const data = Array.from(focusHist.samples[j].subarray(H - UI.range)), t = focusHist.t.slice(H - UI.range);
+  lineChart($("ts"), { h: 240, t, legend: false, hoverKey: "tsHover", bands, unit: " " + s.unit, yFmt: (v) => v.toFixed(s.dp), series: [{ key: "v", label: s.label, color: css("--accent"), data }],
+    onHover: (k) => { const r = readingStatus(j, data[k]); return row(stColor(r), "Status", STL[r]); } });
+  const tl = events.filter((e) => e.idx === i).slice(0, 8);
+  $("tl").innerHTML = tl.length ? tl.map((e) => `<div><span>${new Date(e.ts).toLocaleTimeString("en-GB")}</span><span style="color:${stColor(e.kind === "cleared" ? 0 : e.sev)}">${e.kind}</span><span>${e.sensor !== "—" ? e.sensor + " " + (e.value ?? "") : "no report 30 s"}</span></div>`).join("") : `<div style="color:var(--muted)">No transitions since the page opened. Healthy device.</div>`;
+  $("meta").innerHTML = Object.entries(d).filter(([k]) => k !== "idx").map(([k, v]) => `<span>${k}</span><span class="num">${v}</span>`).join("");
+}
+
+/* =========================================================================
+   6. Data model view (ERD with live samples)
+   ========================================================================= */
+const ENT = {
+  SensorType: { x: .04, y: .05, where: "shared/sensors.ts", desc: "Catalogue of the ten measured quantities, with units, decimals and warning/critical thresholds. One source for server and browser.", fields: ["key", "label", "unit", "decimals", "warn / crit (hi, lo)"], sample: () => ({ ...SENSORS[UI.selSensor] }) },
+  Device: { x: .38, y: .05, where: "Mongo · devices (10,000)", desc: "One physical unit with a stable deviceId, device type and a location path site › floor › zone › room › rack.", fields: ["deviceId PK", "name", "type", "site, floor, zone", "room, rack", "active"], sample: () => { const { idx, ...d } = devices[UI.selected ?? 42]; return { ...d, status: STL[dstat[idx]], lastSeen: new Date(lastSeen[idx]).toISOString() }; } },
+  Reading: { x: .21, y: .37, where: "Mongo · latest_readings (100,000)", desc: "Latest value of one sensor type on one device. 10 per device. Upserted in batches every 5 s from the in-memory state.", fields: ["_id = deviceId:sensor", "deviceId FK", "sensor FK", "value, unit", "status", "ts"], sample: () => { const i = UI.selected ?? 42, j = UI.selSensor, s = SENSORS[j]; return { _id: `${devices[i].deviceId}:${s.key}`, deviceId: devices[i].deviceId, sensor: s.key, value: +fv(j, values[i * NS_ + j]), unit: s.unit, status: STL[rstat[i * NS_ + j]], ts: new Date(lastSeen[i]).toISOString(), location: `${devices[i].zone}${devices[i].floor}` }; } },
+  Sample: { x: .04, y: .69, where: "memory · ring buffer (15 min)", desc: "One historic (ts, value) for a device + sensor. Served by GET /api/devices/{id}/history. At scale: Mongo time-series collection.", fields: ["deviceId", "sensor", "ts", "value"], sample: () => { const i = UI.selected ?? 42, j = UI.selSensor, h = focusHist && focusHist.idx === i ? focusHist : synthHistory(i); return { deviceId: devices[i].deviceId, sensor: SENSORS[j].key, samples: Array.from({ length: 5 }, (_, k) => ({ ts: new Date(h.t[H - 5 + k]).toISOString(), value: +fv(j, h.samples[j][H - 5 + k]) })) }; } },
+  Alert: { x: .56, y: .37, where: "memory (open) → events", desc: "An open condition, raised when a reading enters WARNING/CRITICAL or a device goes OFFLINE; cleared when it returns to NORMAL.", fields: ["id", "deviceId FK", "sensor", "severity", "value", "raisedAt", "ack"], sample: () => { const a = [...alerts.values()].sort((x, y) => y.sev - x.sev || y.raisedAt - x.raisedAt)[0]; if (!a) return {}; const { idx, sev, ...r } = a; return { ...r, raisedAt: new Date(r.raisedAt).toISOString() }; } },
+  Event: { x: .72, y: .69, where: "Mongo · events (TTL 24 h)", desc: "Immutable record of a transition. The activity feed and the device timeline read these.", fields: ["id", "deviceId FK", "kind: raised|cleared|offline|online", "severity", "value", "ts"], sample: () => events.slice(0, 3).map((e) => ({ deviceId: devices[e.idx].deviceId, kind: e.kind, severity: STL[e.sev], sensor: e.sensor, value: e.value, ts: new Date(e.ts).toISOString() })) },
+  Summary: { x: .72, y: .05, where: "SSE · event: summary (1 Hz)", desc: "Aggregates computed from state every tick: KPI counts, per-sensor breaches, per-zone status counts, fleet averages. Charts only read this, never raw readings.", fields: ["ts, seq", "byStatus", "bySensor", "byZone", "averages"], sample: () => ({ ...summary, byZone: Object.fromEntries(Object.entries(summary.byZone).slice(0, 3)), "…": "21 more zones" }) },
+  Delta: { x: .38, y: .69, where: "SSE · event: delta (1 Hz)", desc: "Packed list of devices that changed in one tick: [idx, status, lastSeen, v0..v9]. ~1,000 rows per frame instead of 10,000.", fields: ["seq", "ts", "rows[[idx, st, seen, v0…v9]]"], sample: () => ({ ...lastDelta, rows: lastDelta.rows, "…": `${fmt(lastDelta.totalRows - 3)} more rows this tick` }) },
+};
+const REL = [["SensorType", "Reading", "1 : n"], ["Device", "Reading", "1 : 10"], ["Reading", "Sample", "1 : n (history)"], ["Reading", "Alert", "raises"], ["Alert", "Event", "writes"], ["Device", "Event", "1 : n"], ["Reading", "Summary", "aggregated into"], ["Reading", "Delta", "changes packed into"]];
+function drawErd() {
+  const svg = $("erd"), w = svg.clientWidth, h = 640, bw = Math.min(210, w * .24); svg.innerHTML = "";
+  const box = (k) => { const e = ENT[k], bh = 34 + e.fields.length * 17; return { x: e.x * (w - bw) / .76 * .76 + 8, y: e.y * h, w: bw, h: bh }; };
+  const pos = Object.fromEntries(Object.keys(ENT).map((k) => [k, box(k)])), focus = UI.erdHover ?? UI.erdSel, related = new Set([focus]);
+  REL.forEach(([a, b]) => { if (a === focus) related.add(b); if (b === focus) related.add(a); });
+  REL.forEach(([a, b, l]) => { const A = pos[a], B = pos[b], on = a === focus || b === focus, x1 = A.x + A.w / 2, y1 = A.y + A.h / 2, x2 = B.x + B.w / 2, y2 = B.y + B.h / 2, c = on ? css("--accent") : css("--border");
+    const p = el("path", { d: `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`, fill: "none", stroke: c, "stroke-width": on ? 2 : 1, class: on ? "glow" : "", style: `color:${c}`, "stroke-dasharray": on ? "6 6" : "" }, svg);
+    if (on) el("animate", { attributeName: "stroke-dashoffset", from: 24, to: 0, dur: "1s", repeatCount: "indefinite" }, p);
+    const t = txt(svg, (x1 + x2) / 2, (y1 + y2) / 2 - 4, l, { "text-anchor": "middle", fill: on ? css("--text") : css("--muted"), "font-size": 10 }); t.setAttribute("paint-order", "stroke"); t.setAttribute("stroke", css("--panel-solid")); t.setAttribute("stroke-width", 4); });
+  Object.entries(ENT).forEach(([k, e]) => { const b = pos[k], on = related.has(k), sel = k === UI.erdSel, mem = e.where.startsWith("memory"), sse = e.where.startsWith("SSE"), c = sse ? css("--accent2") : mem ? css("--warn") : css("--accent");
+    const g = el("g", { class: "ent", opacity: on ? 1 : .45 }, svg);
+    el("rect", { class: "box", x: b.x, y: b.y, width: b.w, height: b.h, rx: document.body.classList.contains("C") ? 0 : 10, fill: css("--panel-solid"), stroke: sel ? c : css("--border"), "stroke-width": sel ? 2 : 1 }, g);
+    el("rect", { x: b.x, y: b.y, width: b.w, height: 28, rx: document.body.classList.contains("C") ? 0 : 10, fill: c, "fill-opacity": .18 }, g);
+    txt(g, b.x + 10, b.y + 18, k, { "font-size": 13, "font-weight": 600, fill: css("--text") }); txt(g, b.x + b.w - 8, b.y + 18, sse ? "wire" : mem ? "memory" : "mongo", { "text-anchor": "end", fill: c, "font-size": 9 });
+    e.fields.forEach((f, i) => txt(g, b.x + 10, b.y + 46 + i * 17, f, { "font-size": 11, fill: /PK|FK/.test(f) ? c : css("--muted") }));
+    g.onmouseenter = () => { UI.erdHover = k; drawErd(); }; g.onmouseleave = () => { UI.erdHover = null; drawErd(); }; g.onclick = () => { UI.erdSel = k; drawErd(); drawEnt(); }; });
+  [["mongo", css("--accent")], ["memory", css("--warn")], ["SSE wire", css("--accent2")]].forEach(([l, c], i) => { el("rect", { x: 10 + i * 90, y: h - 16, width: 10, height: 10, fill: c, "fill-opacity": .6 }, svg); txt(svg, 24 + i * 90, h - 7, l, { "font-size": 11, fill: css("--text") }); });
+}
+function drawEnt() { const e = ENT[UI.erdSel]; $("ent-title").textContent = UI.erdSel; $("ent-where").textContent = e.where; $("ent-desc").textContent = e.desc;
+  $("ent-kv").innerHTML = `<span>Fields</span><span class="num">${e.fields.join(" · ")}</span><span>Related</span><span>${REL.filter(([a, b]) => a === UI.erdSel || b === UI.erdSel).map(([a, b, l]) => `${a} → ${b} <span style="color:var(--muted)">(${l})</span>`).join("<br>")}</span>`;
+  $("ent-json").textContent = JSON.stringify(e.sample(), null, 2); }
+
+/* =========================================================================
+   7. 3D scenes (three.js): Digital Twin · Orbital Telemetry · Industrial Control Room
+      All 10,000 devices are ONE InstancedMesh; only colours of changed devices are rewritten per tick.
+   ========================================================================= */
+const zoneDev = {}; devices.forEach((d) => (zoneDev[d.zone + d.floor] ??= []).push(d.idx));
+function zoneStatus(zk) { const zc = summary?.byZone[zk] ?? [0, 0, 0, 0], tot = zc.reduce((a, b) => a + b, 0) || 1; return zc[2] / tot > .011 ? 2 : (zc[1] + zc[2]) / tot > .036 ? 1 : zc[3] / tot > .03 ? 3 : 0; }
+
+const Twin = (() => {
+  const host = $("twin");
+  if (!window.THREE || !THREE.OrbitControls) { host.insertAdjacentHTML("beforeend", "<div class='tw-fallback'>3D view needs network access to load three.js from jsDelivr.</div>"); return { rebuild() {}, update() {}, focus() {} }; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); host.prepend(renderer.domElement);
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(45, 1, .1, 800);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = .08; controls.autoRotate = true; controls.autoRotateSpeed = .45; controls.maxDistance = 60; controls.minDistance = 3; controls.enableZoom = false;
+  let composer = null, bloom = null;
+  try { composer = new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene, camera)); bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), .5, .5, .3); composer.addPass(bloom); } catch { composer = null; }
+  const dummy = new THREE.Object3D(), col = new THREE.Color(), pos = new Float32Array(N * 3), cache = new Uint8Array(N).fill(255), home = { cam: new THREE.Vector3(), target: new THREE.Vector3() };
+  let world, inst, marker, hits = [], anims = [], critNow = new Set(), variant = "A", focusIdx = null, focusTarget = null, hover = null;
+  const C = (k) => new THREE.Color(stColor(k));
+
+  function label(text, color, s = 1) { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const g = c.getContext("2d");
+    g.font = `600 34px ${css("--num-font") || "sans-serif"}`; g.fillStyle = color; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 128, 34);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false })); sp.scale.set(2 * s, .5 * s, 1); return sp; }
+  const edges = (geo, color, opacity = .5) => new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+  const hitMesh = (geo, zk, visibleMat) => { const m = new THREE.Mesh(geo, visibleMat ?? new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); m.userData.zk = zk; hits.push(m); return m; };
+
+  /* ----- 1. Digital twin: glass building, 4 floor slabs, 6 zone pads per floor, devices on the pads ----- */
+  function buildTwin() {
+    const acc = css("--accent"), FH = 1.7;
+    world.add(new THREE.AmbientLight(0xffffff, .6));
+    const grid = new THREE.GridHelper(40, 40, acc, acc); grid.material.transparent = true; grid.material.opacity = .08; grid.position.y = -.05; world.add(grid);
+    for (let f = 1; f <= FLOORS; f++) { const y = (f - 1) * FH, slab = new THREE.BoxGeometry(9.6, .06, 6.6);
+      const m = new THREE.Mesh(slab, new THREE.MeshBasicMaterial({ color: acc, transparent: true, opacity: .05 })); m.position.y = y; world.add(m);
+      const e = edges(slab, acc, .45); e.position.y = y; world.add(e);
+      const lb = label("FLOOR " + f, acc, .9); lb.position.set(-5.9, y + .35, 3.4); world.add(lb);
+      for (let c = 0; c < 6; c++) { const zk = ZONES[c] + f, cx = (c % 3 - 1) * 3.1, cz = (Math.floor(c / 3) - .5) * 3.1;
+        const pad = hitMesh(new THREE.BoxGeometry(2.9, .05, 2.9), zk, new THREE.MeshBasicMaterial({ color: stColor(0), transparent: true, opacity: .12, depthWrite: false })); pad.position.set(cx, y + .04, cz); pad.userData.pad = true; world.add(pad);
+        const pe = edges(pad.geometry, acc, .25); pe.position.copy(pad.position); world.add(pe);
+        const zl = label(zk, css("--muted"), .55); zl.position.set(cx - 1.2, y + .25, cz - 1.25); world.add(zl);
+        const ids = zoneDev[zk] ?? [], g = Math.ceil(Math.sqrt(ids.length)), step = 2.6 / g;
+        ids.forEach((i, k) => { pos[i * 3] = cx - 1.3 + (k % g + .5) * step; pos[i * 3 + 1] = y + .12; pos[i * 3 + 2] = cz - 1.3 + (Math.floor(k / g) + .5) * step; }); } }
+    const shell = new THREE.BoxGeometry(9.8, FH * FLOORS, 6.8), sh = edges(shell, acc, .18); sh.position.y = FH * FLOORS / 2 - .2; world.add(sh);
+    for (const [x, z] of [[-4.9, -3.4], [4.9, -3.4], [-4.9, 3.4], [4.9, 3.4]]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, FH * FLOORS + 1, 6), new THREE.MeshBasicMaterial({ color: acc })); b.position.set(x, FH * FLOORS / 2 - .2, z); world.add(b); }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(9.6, .02, 6.6), new THREE.MeshBasicMaterial({ color: acc, transparent: true, opacity: .12, depthWrite: false })); world.add(beam);
+    anims.push((t) => { beam.position.y = ((t * .0006) % 1) * FH * FLOORS; beam.material.opacity = .06 + .08 * Math.sin(t * .003) ** 2; });
+    home.cam.set(8.5, 7, 9.5); home.target.set(0, 2.4, 0); if (bloom) bloom.strength = .55;
+  }
+
+  /* ----- 2. Orbital telemetry: glowing core, 4 tilted orbits (floors) split into 6 arcs (zones), devices as satellites ----- */
+  function buildOrbital() {
+    const acc = css("--accent"), acc2 = css("--accent2");
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.25, 1), new THREE.MeshBasicMaterial({ color: acc, wireframe: true })); world.add(core);
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(.85, 32, 32), new THREE.MeshBasicMaterial({ color: acc2, transparent: true, opacity: .55 })); world.add(inner);
+    const cl = label("DC-1 CORE", css("--text"), 1); cl.position.y = 1.9; world.add(cl);
+    anims.push((t) => { core.rotation.y = t * .0003; core.rotation.x = t * .0002; inner.scale.setScalar(1 + .04 * Math.sin(t * .002)); });
+    const starG = new THREE.BufferGeometry(), sp = new Float32Array(2400 * 3); for (let k = 0; k < sp.length; k++) sp[k] = (Math.random() - .5) * 160;
+    starG.setAttribute("position", new THREE.BufferAttribute(sp, 3)); world.add(new THREE.Points(starG, new THREE.PointsMaterial({ color: 0xffffff, size: .12, transparent: true, opacity: .55 })));
+    const v = new THREE.Vector3();
+    for (let f = 1; f <= FLOORS; f++) { const R = 2.4 + f * 1.25, pivot = new THREE.Object3D(); pivot.rotation.set(Math.PI / 2 + (f - 2.5) * .22, 0, f * .35); pivot.updateMatrixWorld(); world.add(pivot);
+      const orbit = new THREE.Mesh(new THREE.TorusGeometry(R, .008, 4, 200), new THREE.MeshBasicMaterial({ color: acc, transparent: true, opacity: .35 })); pivot.add(orbit);
+      const fl = label("F" + f, acc, .6); fl.position.set(R + .5, 0, 0); pivot.add(fl);
+      for (let c = 0; c < 6; c++) { const zk = ZONES[c] + f, a0 = c * Math.PI / 3 + .05, arc = Math.PI / 3 - .1;
+        const seg = new THREE.Mesh(new THREE.TorusGeometry(R, .045, 6, 48, arc), new THREE.MeshBasicMaterial({ color: stColor(0), transparent: true, opacity: .55 })); seg.rotation.z = a0; seg.userData.zk = zk; seg.userData.pad = true; hits.push(seg); pivot.add(seg);
+        const h = hitMesh(new THREE.TorusGeometry(R, .35, 6, 24, arc), zk); h.rotation.z = a0; pivot.add(h);
+        (zoneDev[zk] ?? []).forEach((i) => { const a = a0 + Math.random() * arc, r = R + (Math.random() - .5) * .5; v.set(r * Math.cos(a), r * Math.sin(a), (Math.random() - .5) * .3).applyMatrix4(pivot.matrixWorld); pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; }); }
+      const sat = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 12), new THREE.MeshBasicMaterial({ color: acc2 })); pivot.add(sat);
+      anims.push((t) => { const a = t * .0004 * (1 + f * .15) + f; sat.position.set(R * Math.cos(a), R * Math.sin(a), 0); }); }
+    home.cam.set(0, 5, 14); home.target.set(0, 0, 0); if (bloom) bloom.strength = .8;
+  }
+
+  /* ----- 3. Industrial control room: data hall, rack rows per floor, LEDs per device on rack faces ----- */
+  function buildRoom() {
+    const acc = css("--accent"), acc2 = css("--accent2");
+    world.add(new THREE.AmbientLight(0xffffff, .35)); const dl = new THREE.DirectionalLight(0xffffff, .7); dl.position.set(6, 12, 8); world.add(dl);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshStandardMaterial({ color: 0x0d0c0a, metalness: .6, roughness: .5 })); floor.rotation.x = -Math.PI / 2; world.add(floor);
+    const grid = new THREE.GridHelper(40, 66, acc, 0x3a3226); grid.material.transparent = true; grid.material.opacity = .25; grid.position.y = .005; world.add(grid);
+    const rackMat = new THREE.MeshStandardMaterial({ color: 0x1b1813, metalness: .8, roughness: .35 });
+    for (let f = 1; f <= FLOORS; f++) { const z = (f - 2.5) * 3.4;
+      const aisle = new THREE.Mesh(new THREE.PlaneGeometry(22, .9), new THREE.MeshBasicMaterial({ color: acc2, transparent: true, opacity: .1 })); aisle.rotation.x = -Math.PI / 2; aisle.position.set(0, .01, z + 1.25); world.add(aisle);
+      const rl = label("HALL " + f, acc, .9); rl.position.set(-12.3, 1.2, z); world.add(rl);
+      for (let c = 0; c < 6; c++) { const zk = ZONES[c] + f, zx = (c - 2.5) * 3.6, ids = zoneDev[zk] ?? [], per = Math.ceil(ids.length / 3);
+        const strip = hitMesh(new THREE.BoxGeometry(3.1, .08, 1.05), zk, new THREE.MeshBasicMaterial({ color: stColor(0) })); strip.position.set(zx, 2.36, z); strip.userData.pad = true; world.add(strip);
+        const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 1.6), new THREE.MeshBasicMaterial({ color: stColor(0), transparent: true, opacity: .0, depthWrite: false })); glow.rotation.x = -Math.PI / 2; glow.position.set(zx, .02, z + .2); glow.userData.glowOf = zk; hits.push(glow); world.add(glow);
+        const zl = label(zk, css("--muted"), .55); zl.position.set(zx, 2.75, z); world.add(zl);
+        for (let r = 0; r < 3; r++) { const rx = zx + (r - 1) * 1.02, rack = hitMesh(new THREE.BoxGeometry(.95, 2.3, 1), zk, rackMat); rack.position.set(rx, 1.15, z); world.add(rack);
+          const e = edges(rack.geometry, acc, .18); e.position.copy(rack.position); world.add(e);
+          ids.slice(r * per, (r + 1) * per).forEach((i, k) => { const cols = 7; pos[i * 3] = rx - .36 + (k % cols) * .12; pos[i * 3 + 1] = .2 + Math.floor(k / cols) * .105; pos[i * 3 + 2] = z + .52; }); } } }
+    const sweep = new THREE.Mesh(new THREE.PlaneGeometry(.35, 16), new THREE.MeshBasicMaterial({ color: acc, transparent: true, opacity: .12, depthWrite: false })); sweep.rotation.x = -Math.PI / 2; sweep.position.y = .02; world.add(sweep);
+    anims.push((t) => { sweep.position.x = Math.sin(t * .0004) * 11; });
+    home.cam.set(3, 8, 12.5); home.target.set(0, 1, 0); if (bloom) bloom.strength = .5;
+  }
+
+  function rebuild(v) { variant = v;
+    if (world) { scene.remove(world); world.traverse((o) => { o.geometry?.dispose(); [o.material].flat().forEach((m) => { m?.map?.dispose(); m?.dispose?.(); }); }); }
+    world = new THREE.Group(); scene.add(world); hits = []; anims = []; cache.fill(255); critNow.clear();
+    scene.background = new THREE.Color(css("--panel-solid")); scene.fog = new THREE.FogExp2(scene.background, v === "B" ? .012 : .022);
+    ({ A: buildTwin, B: buildOrbital, C: buildRoom })[v]();
+    $("tw-title").textContent = { A: "3D Digital Twin", B: "Orbital Telemetry", C: "Industrial 3D Control Room" }[v];
+    $("tw-sub").textContent = { A: "DC-1 · 4 floors × 6 zones · 10,000 devices live", B: "4 orbits = floors · 6 arcs = zones · each dot = one device", C: "4 halls × 6 zones × 3 racks · one LED per device" }[v];
+    inst = new THREE.InstancedMesh(v === "B" ? new THREE.SphereGeometry(.045, 6, 6) : new THREE.BoxGeometry(v === "C" ? .07 : .075, v === "C" ? .06 : .075, v === "C" ? .02 : .075), new THREE.MeshBasicMaterial({ toneMapped: false }), N);
+    inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    for (let i = 0; i < N; i++) { dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); dummy.scale.setScalar(1); dummy.updateMatrix(); inst.setMatrixAt(i, dummy.matrix); inst.setColorAt(i, col.set(0)); }
+    world.add(inst);
+    marker = new THREE.Mesh(new THREE.TorusGeometry(.2, .02, 8, 40), new THREE.MeshBasicMaterial({ color: css("--accent"), toneMapped: false })); marker.visible = false; world.add(marker);
+    const beamG = new THREE.CylinderGeometry(.01, .01, 3, 6); beamG.translate(0, 1.5, 0); marker.add(new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ color: css("--accent"), transparent: true, opacity: .6 })));
+    camera.position.copy(home.cam); controls.target.copy(home.target); focusTarget = null; update(); resize(); if (focusIdx != null) focus(focusIdx);
+  }
+
+  function update() { if (!inst || !summary) return; const cs = [C(0).multiplyScalar(.5), C(1), C(2).multiplyScalar(1.4), C(3).multiplyScalar(.7)], dimmed = cs.map((c) => c.clone().multiplyScalar(.12)); let dirty = false; const nextCrit = new Set();
+    const filtered = UI.filter.status != null || UI.filter.zone || UI.filter.sensor != null || UI.filter.q;
+    for (let i = 0; i < N; i++) { const st = dstat[i], m = !filtered || matches(i), key = st + (m ? 0 : 4); if (st === 2 && m) nextCrit.add(i);
+      if (cache[i] !== key) { cache[i] = key; inst.setColorAt(i, m ? cs[st] : dimmed[st]); dirty = true; } }
+    if (dirty) inst.instanceColor.needsUpdate = true;
+    for (const i of critNow) if (!nextCrit.has(i)) { dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); dummy.scale.setScalar(1); dummy.updateMatrix(); inst.setMatrixAt(i, dummy.matrix); }
+    critNow = nextCrit; inst.instanceMatrix.needsUpdate = true;
+    hits.forEach((h) => { const zk = h.userData.zk ?? h.userData.glowOf; if (!zk) return; const k = zoneStatus(zk), sel = UI.filter.zone === zk, isHover = hover?.zk === zk;
+      if (h.userData.pad) { h.material.color = C(k); if (variant === "A") h.material.opacity = sel || isHover ? .4 : k ? .2 : .05; if (variant === "B") h.material.opacity = sel || isHover ? 1 : k ? .85 : .4; }
+      if (h.userData.glowOf) { h.material.color = C(k); h.material.opacity = sel || isHover ? .35 : k === 2 ? .28 : k === 1 ? .12 : 0; } });
+    const b = summary.byStatus; $("tw-stat").innerHTML = `<span style="color:var(--crit)">⬣ ${fmt(b.CRITICAL)}</span> · <span style="color:var(--warn)">▲ ${fmt(b.WARNING)}</span> · <span style="color:var(--off)">⦸ ${fmt(b.OFFLINE)}</span><br>${filtered ? "filtered · others dimmed" : "seq " + summary.seq}`;
+  }
+
+  function focus(i) { focusIdx = i; if (!marker) return; if (i == null) { marker.visible = false; focusTarget = home.target.clone(); return; }
+    marker.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); marker.visible = true; focusTarget = marker.position.clone(); controls.autoRotate = false; $("tw-rot").classList.remove("on"); }
+
+  function resize() { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.zoom = Math.min(1, camera.aspect / 1.5); camera.updateProjectionMatrix(); composer?.setSize(w, h); bloom?.resolution.set(w, h); }
+  new ResizeObserver(resize).observe(host);
+
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null, pending = null;
+  function pick(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(ndc, camera);
+    const hi = ray.intersectObject(inst)[0]; if (hi && hi.instanceId != null) return { idx: hi.instanceId }; const hz = ray.intersectObjects(hits, false).find((x) => x.object.userData.zk); return hz ? { zk: hz.object.userData.zk } : null; }
+  renderer.domElement.addEventListener("wheel", (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const off = camera.position.clone().sub(controls.target), d = clamp(off.length() * (e.deltaY > 0 ? 1.1 : .9), controls.minDistance, controls.maxDistance); camera.position.copy(controls.target).add(off.setLength(d)); }, { passive: false });
+  renderer.domElement.addEventListener("pointermove", (e) => { pending = e; });
+  renderer.domElement.addEventListener("pointerleave", () => { pending = null; hover = null; hideTip(); renderer.domElement.style.cursor = ""; update(); });
+  renderer.domElement.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener("pointerup", (e) => { if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return; const p = pick(e); if (!p) return; hideTip();
+    if (p.idx != null) openDrawer(p.idx, worstSensor(p.idx)); else setFilter("zone", p.zk); });
+  controls.addEventListener("start", () => { controls.autoRotate = false; $("tw-rot").classList.remove("on"); focusTarget = null; });
+  $("tw-rot").onclick = () => { controls.autoRotate = !controls.autoRotate; $("tw-rot").classList.toggle("on", controls.autoRotate); };
+  $("tw-reset").onclick = () => { camera.position.copy(home.cam); focusTarget = home.target.clone(); controls.autoRotate = true; $("tw-rot").classList.add("on"); };
+
+  function hoverTip(e) { const p = pick(e), prevZk = hover?.zk; hover = p; renderer.domElement.style.cursor = p ? "pointer" : "";
+    if (!p) hideTip();
+    else if (p.idx != null) { const i = p.idx, d = devices[i], st = dstat[i], w = worstSensor(i), s = SENSORS[w];
+      showTip(e, `<b style="color:${stColor(st)}">${ICON[st]} ${d.deviceId}</b> <span style="color:var(--muted)">${d.type}</span><div style="color:var(--muted)">F${d.floor} › Zone ${d.zone} › ${d.rack}</div>` +
+        (st === 3 ? row(stColor(3), "Last seen", ago(lastSeen[i]) + " ago") : row(stColor(rstat[i * NS_ + w]), s.label, fv(w, values[i * NS_ + w]) + " " + s.unit) + row(stColor(rstat[i * NS_]), "Temp", fv(0, values[i * NS_]) + " °C")) + `<div style="color:var(--muted);margin-top:4px">click to open device</div>`); }
+    else { const zc = summary.byZone[p.zk] ?? [0, 0, 0, 0]; showTip(e, `<b>Zone ${p.zk[0]} · Floor ${p.zk[1]}</b>` + [0, 1, 2, 3].map((s) => row(stColor(s), STL[s], fmt(zc[s]))).join("") + `<div style="color:var(--muted);margin-top:4px">click to filter everything</div>`); }
+    if (prevZk !== hover?.zk) update(); }
+
+  function frame(t) { requestAnimationFrame(frame); if (document.hidden || document.body.classList.contains("model")) return;
+    if (pending) { hoverTip(pending); pending = null; }
+    if (focusTarget) { controls.target.lerp(focusTarget, .08); if (controls.target.distanceTo(focusTarget) < .01) focusTarget = null; }
+    controls.update(); anims.forEach((a) => a(t));
+    if (inst && critNow.size) { const s = 1.4 + .9 * Math.abs(Math.sin(t * .004)); for (const i of critNow) { dummy.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); dummy.scale.setScalar(s); dummy.updateMatrix(); inst.setMatrixAt(i, dummy.matrix); } inst.instanceMatrix.needsUpdate = true; }
+    if (marker?.visible) { marker.lookAt(camera.position); marker.rotation.z = t * .003; }
+    composer ? composer.render() : renderer.render(scene, camera); }
+  requestAnimationFrame(frame);
+  return { rebuild, update, focus };
+})();
+
+/* =========================================================================
+   8. Frame loop
+   ========================================================================= */
+let raf = 0, pendingFull = false;
+function drawAll(light) { if (!light) pendingFull = true; if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (!summary) return; light = !pendingFull; pendingFull = false;
+  if (document.body.classList.contains("model")) { drawErd(); drawEnt(); return; }
+  const k = (id, v) => $(id).textContent = fmt(v), b = summary.byStatus;
+  k("k-ok", b.NORMAL); k("k-warn", b.WARNING); k("k-crit", b.CRITICAL); k("k-off", b.OFFLINE); k("k-eps", fleetHist.eps.at(-1));
+  const d5 = (key) => { const a = fleetHist[key]; const v = a.at(-1) - a[Math.max(0, a.length - 60)]; return (v >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(v)) + " in 60 s"; };
+  $("d-ok").textContent = (b.NORMAL / N * 100).toFixed(1) + "% of fleet"; $("d-warn").textContent = d5("warn"); $("d-crit").textContent = d5("crit"); $("d-off").textContent = d5("off");
+  const tail = (a) => a.slice(-60); spark($("s-total"), tail(fleetHist.ok).map((_, i) => N)); spark($("s-ok"), tail(fleetHist.ok)); spark($("s-warn"), tail(fleetHist.warn)); spark($("s-crit"), tail(fleetHist.crit)); spark($("s-off"), tail(fleetHist.off)); spark($("s-eps"), tail(fleetHist.eps));
+  drawArea(); drawRing(); drawHex(); drawRadar(); drawGauges(); if (!light) { Twin.update(); drawAlerts(); drawTable(); if (UI.selected != null) drawDrawer(); } }); }
+
+function loop() { if (liveOn) { UI.changed = tick(); $("lag").textContent = rnd(.2, .6).toFixed(1) + "s"; drawAll(); } $("clock").textContent = new Date().toLocaleTimeString("en-GB") + " IST"; }
+for (let k = 0; k < H; k++) { tick(); fleetHist.t[fleetHist.t.length - 1] = Date.now() - (H - 1 - k) * 1000; }
+events.length = 0; [...alerts.values()].slice(0, 30).forEach((a) => pushEvent({ kind: a.sev === 3 ? "offline" : "raised", idx: a.idx, sev: a.sev, sensor: a.sensor, value: a.value, ts: Date.now() - rnd(1000, 60000) })); events.sort((a, b) => b.ts - a.ts);
+
+function setVariant(v) { document.body.classList.remove("A", "B", "C"); document.body.classList.add(v); document.querySelectorAll(".switcher button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  const u = new URL(location.href); u.searchParams.set("variant", v); try { history.replaceState(null, "", u); } catch {} alertSig = ""; if (UI.selected != null) $("drawer").dataset.built = ""; Twin.rebuild(v); drawAll(); }
+function setView(v) { document.body.classList.toggle("model", v === "model"); document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v)); alertSig = ""; drawAll(); }
+document.querySelectorAll(".switcher button").forEach((b) => b.onclick = () => setVariant(b.dataset.v));
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => setView(b.dataset.view));
+document.querySelectorAll(".kpi").forEach((k) => k.onclick = () => { if (k.dataset.f === "all") { UI.filter.status = null; UI.lastSort = 0; renderFilters(); drawAll(); } else setFilter("status", ST[k.dataset.f]); });
+$("live").onclick = () => { liveOn = !liveOn; $("live").classList.toggle("paused", !liveOn); $("livetxt").textContent = liveOn ? "LIVE · SSE" : "PAUSED"; };
+let qT; $("q").oninput = (e) => { clearTimeout(qT); qT = setTimeout(() => { UI.filter.q = e.target.value.trim(); UI.lastSort = 0; renderFilters(); drawAll(); }, 150); };
+addEventListener("keydown", (e) => { if (e.target.tagName === "INPUT") { if (e.key === "Escape") e.target.blur(); return; }
+  if (e.key === "/") { e.preventDefault(); $("q").focus(); } else if (e.key === "Escape") closeDrawer(); else if (e.key === " ") { e.preventDefault(); $("live").click(); }
+  else { const m = { 1: "A", 2: "B", 3: "C" }[e.key]; if (m) setVariant(m); } });
+addEventListener("resize", () => drawAll());
+renderFilters();
+setVariant(new URL(location.href).searchParams.get("variant") || "C");
+setInterval(loop, 1000); loop();
+</script>
+</body>
+</html>
