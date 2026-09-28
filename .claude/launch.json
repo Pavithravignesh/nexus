@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "dashboard", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 },
+    { "name": "diagrams", "runtimeExecutable": "node", "runtimeArgs": ["docs/diagrams/serve.mjs"], "port": 4100 }
+  ]
+}
