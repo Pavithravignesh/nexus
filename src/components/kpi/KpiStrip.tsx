@@ -14,7 +14,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }): React.JS
   const r = mx - mn || 1;
   const d = data.map((v, i) => `${i ? "L" : "M"}${((i / (data.length - 1)) * w).toFixed(1)},${(h - 3 - ((v - mn) / r) * (h - 6)).toFixed(1)}`).join("");
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="absolute right-3 bottom-3 h-9 w-2/5" preserveAspectRatio="none" aria-hidden>
+    <svg viewBox={`0 0 ${w} ${h}`} className="absolute inset-x-3 bottom-2 h-7 w-[calc(100%-1.5rem)]" preserveAspectRatio="none" aria-hidden>
       <path d={`${d}L${w},${h}L0,${h}Z`} fill={color} opacity={0.12} />
       <path d={d} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>
@@ -49,8 +49,8 @@ export function KpiStrip({ status, onStatus }: { status: StatusCode | null; onSt
             type="button"
             onClick={() => onStatus(c.filter === null || selected ? null : c.filter)}
             aria-pressed={selected}
-            className="panel min-h-28 cursor-pointer text-left transition-transform hover:-translate-y-0.5"
-            style={selected ? { outline: `2px solid ${c.color}`, outlineOffset: -2 } : undefined}
+            className="panel min-h-32 cursor-pointer text-left transition-transform hover:-translate-y-0.5"
+            style={{ paddingBottom: 44, ...(selected ? { outline: `2px solid ${c.color}`, outlineOffset: -2 } : {}) }}
           >
             <div className="flex items-center gap-2 text-xs tracking-[.12em] text-muted uppercase">
               <span aria-hidden className="h-2 w-2" style={{ background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
@@ -61,7 +61,7 @@ export function KpiStrip({ status, onStatus }: { status: StatusCode | null; onSt
                 <div className="num mt-1.5 text-3xl font-semibold" style={{ textShadow: `0 0 18px color-mix(in srgb, ${c.color} 40%, transparent)` }}>
                   {fmt(c.value(last))}
                 </div>
-                <div className="mt-1 text-xs text-muted">{c.sub(last, prev)}</div>
+                <div className="mt-1 truncate text-xs text-muted">{c.sub(last, prev)}</div>
                 <Sparkline data={trend.slice(-60).map(c.value)} color={c.color} />
               </>
             ) : (
