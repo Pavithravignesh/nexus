@@ -5,6 +5,7 @@ import { TelemetryProvider, useLive } from "@/hooks/useTelemetry";
 import { FLOORS, ZONES, type Floor, type Zone } from "@/shared/fleet";
 import type { StatusCode } from "@/shared/status";
 import { AlertsPanel } from "./alerts/AlertsPanel";
+import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
 import { DeviceTable } from "./devices/DeviceTable";
 import { DeviceDrawer } from "./drawer/DeviceDrawer";
 import { KpiStrip } from "./kpi/KpiStrip";
@@ -88,6 +89,15 @@ function Board(): React.JSX.Element {
             </div>
 
             <KpiStrip status={f.status} onStatus={(s) => setF((x) => ({ ...x, status: s }))} />
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="min-w-0 lg:col-span-8">
+                <FleetHealthChart />
+              </div>
+              <div className="min-w-0 lg:col-span-4">
+                <StatusDonut status={f.status} onStatus={(st) => setF((x) => ({ ...x, status: st }))} />
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
               <div className="min-w-0 xl:col-span-8">
