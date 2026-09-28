@@ -183,7 +183,7 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
   const ui = STATUS_UI[st];
   return (
     <>
-      <div className="fixed inset-0 z-[55] bg-black/60" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-[55] bg-[var(--scrim)]" onClick={onClose} aria-hidden />
       <aside role="dialog" aria-modal="true" aria-label={`Device ${d.deviceId}`} style={{ background: "var(--surface)" }} className="slidein fixed top-0 right-0 bottom-0 z-[60] flex w-full max-w-[560px] flex-col gap-3 overflow-y-auto border-l border-border p-4 shadow-2xl">
         <div className="border p-3" style={{ borderColor: `color-mix(in srgb, ${ui.color} 50%, transparent)`, background: `color-mix(in srgb, ${ui.color} 10%, transparent)` }}>
           <div className="flex items-start justify-between">
@@ -205,7 +205,7 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
             const r = st === OFFLINE ? 3 : ((store.readingStatus[idx * SENSOR_COUNT + j] ?? 0) as StatusCode);
             const color = r ? STATUS_UI[r].color : "var(--text)";
             return (
-              <button key={s.key} type="button" onClick={() => setSensor(j)} aria-pressed={sensor === j} className="border border-border p-2 text-left hover:bg-white/5" style={sensor === j ? { outline: "2px solid var(--accent)", outlineOffset: -2 } : undefined}>
+              <button key={s.key} type="button" onClick={() => setSensor(j)} aria-pressed={sensor === j} className="border border-border p-2 text-left hover:bg-[var(--wash)]" style={sensor === j ? { outline: "2px solid var(--accent)", outlineOffset: -2 } : undefined}>
                 <div className="text-[10px] tracking-wider text-muted uppercase">{s.label}</div>
                 <div className="num text-sm" style={{ color }}>
                   {st === OFFLINE ? "—" : roundFor(j, store.values[idx * SENSOR_COUNT + j] ?? 0)} <span className="text-[10px] text-muted">{s.unit}</span>

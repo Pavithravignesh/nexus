@@ -47,7 +47,7 @@ const Row = memo(function Row({ idx, selected, now, onOpen }: { idx: number; sel
     <button
       type="button"
       onClick={() => onOpen(idx)}
-      className={`${GRID} num h-full w-full border-b border-white/5 text-left text-xs hover:bg-white/5 ${selected ? "bg-accent/15" : ""}`}
+      className={`${GRID} num h-full w-full border-b border-[var(--hairline)] text-left text-xs hover:bg-[var(--wash)] ${selected ? "bg-accent/15" : ""}`}
       style={{ opacity: st === OFFLINE ? 0.55 : stale ? 0.65 : 1, borderLeft: st === CRITICAL ? `3px solid ${STATUS_UI[2].color}` : st === OFFLINE ? "3px dashed var(--st-offline)" : "3px solid transparent" }}
     >
       <StatusBadge code={st} />

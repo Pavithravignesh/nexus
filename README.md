@@ -25,7 +25,7 @@ curl -N http://localhost:3000/api/stream     # watch the live SSE frames
 
 ## What you see
 
-- **Top bar:** search (`/`), connection pill (LIVE / STALE / RECONNECTING, "updated Xs ago"), clock. A banner with **Retry** appears when the stream drops; data is dimmed, never blanked.
+- **Top bar:** search (`/`), connection pill (LIVE / STALE / RECONNECTING, "updated Xs ago"), dark/light theme toggle (remembered, follows the OS by default), clock. A banner with **Retry** appears when the stream drops; data is dimmed, never blanked.
 - **KPI strip:** total, normal, warning, critical, offline, and devices reporting per tick, each with a 60 s sparkline. Click a status to filter everything.
 - **Device table:** all 10,000 devices, virtualized. Sortable columns, filters for status, floor, zone and search. The live order refreshes every 3 s and pauses while you hover. Breaching values are coloured; stale and offline rows are dimmed.
 - **Live alerts + activity feed:** critical first, then newest; click to open the device.
@@ -69,6 +69,6 @@ Shard the simulator/ingest per site behind a queue (Kafka/NATS); keep per-zone a
 
 ## Known limitations
 
-- The 3D control room and P1 charts (zone heatmap, incident trend, device matrix, breach radar) are in the prototype, not yet in the app.
+- The 3D control room and the other P1 visuals (zone heatmap, device matrix, breach radar) are in the prototype, not yet in the app.
 - History lives in memory (~5 min) and resets on restart.
 - Alerts cannot be acknowledged yet; thresholds are fixed in `src/shared/sensors.ts`.

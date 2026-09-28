@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Rajdhani } from "next/font/google";
+import Script from "next/script";
+import { themeBootScript } from "@/components/shell/ThemeToggle";
 import "./globals.css";
 
 const rajdhani = Rajdhani({
@@ -20,8 +22,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <html lang="en" className={`${rajdhani.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+    // suppressHydrationWarning: the boot script sets data-theme on <html> before React hydrates.
+    <html lang="en" suppressHydrationWarning className={`${rajdhani.variable} ${jetbrainsMono.variable} h-full antialiased`}>
+      <body className="min-h-full">
+        <Script id="theme-boot" strategy="beforeInteractive">
+          {themeBootScript}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useLive, useNow, useTopic } from "@/hooks/useTelemetry";
 import { ago } from "../status";
+import { ThemeToggle } from "./ThemeToggle";
 
 const PILL = {
   live: { text: "LIVE · SSE", color: "var(--st-normal)" },
@@ -46,7 +47,10 @@ export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string)
         {pill.text}
         {store.lastFrameAt > 0 && <span className="text-muted">· updated {ago(store.lastFrameAt, now)} ago</span>}
       </div>
-      <time className="num text-xs text-muted">{new Date(now).toLocaleTimeString("en-GB")}</time>
+      <ThemeToggle />
+      <time suppressHydrationWarning className="num text-xs text-muted">
+        {new Date(now).toLocaleTimeString("en-GB")}
+      </time>
     </header>
   );
 }

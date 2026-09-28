@@ -41,7 +41,7 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
             const dev = store.devices[a.deviceIdx];
             return (
               <li key={a.id} className="slidein">
-                <button type="button" onClick={() => onOpen(a.deviceIdx)} className="grid w-full grid-cols-[4px_1fr_auto] items-center gap-3 border border-border bg-white/[.02] py-2 pr-3 text-left hover:bg-white/[.06]">
+                <button type="button" onClick={() => onOpen(a.deviceIdx)} className="grid w-full grid-cols-[4px_1fr_auto] items-center gap-3 border border-border bg-[var(--wash)] py-2 pr-3 text-left hover:bg-[var(--wash-strong)]">
                   <span aria-hidden className="self-stretch" style={{ background: ui.color, boxShadow: `0 0 10px ${ui.color}` }} />
                   <span>
                     <span className="block text-sm">
