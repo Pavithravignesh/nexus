@@ -7,10 +7,10 @@ export const THEME_KEY = "nexus-theme";
 const EVENT = "nexus-theme-change";
 
 /**
- * Runs in <head> before first paint: saved choice, else the OS preference. Inlined as a
+ * Runs before first paint: the saved choice, else dark (the control-room default). Inlined as a
  * string so the page never flashes the wrong theme on reload.
  */
-export const themeBootScript = `(function(){try{var t=localStorage.getItem("${THEME_KEY}");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})();`;
+export const themeBootScript = `(function(){try{var t=localStorage.getItem("${THEME_KEY}");if(t!=="light"&&t!=="dark"){t="dark"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})();`;
 
 const read = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
 const subscribe = (cb: () => void): (() => void) => {

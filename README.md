@@ -25,7 +25,7 @@ curl -N http://localhost:3000/api/stream     # watch the live SSE frames
 
 ## What you see
 
-- **Top bar:** search (`/`), connection pill (LIVE / STALE / RECONNECTING, "updated Xs ago"), dark/light theme toggle (remembered, follows the OS by default), clock. A banner with **Retry** appears when the stream drops; data is dimmed, never blanked.
+- **Top bar:** search (`/`), connection pill (LIVE / STALE / RECONNECTING, "updated Xs ago"), dark/light theme toggle (dark by default, choice remembered), clock. A banner with **Retry** appears when the stream drops; data is dimmed, never blanked.
 - **KPI strip:** total, normal, warning, critical, offline, and devices reporting per tick, each with a 60 s sparkline. Click a status to filter everything.
 - **Device table:** all 10,000 devices, virtualized. Sortable columns, filters for status, floor, zone and search. The live order refreshes every 3 s and pauses while you hover. Breaching values are coloured; stale and offline rows are dimmed.
 - **Live alerts + activity feed:** critical first, then newest; click to open the device.
