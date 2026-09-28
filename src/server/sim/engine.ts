@@ -49,12 +49,15 @@ export class SimEngine {
   private readonly dirty = new Set<number>();
   private pendingEvents: TelemetryEvent[] = [];
   private eventSeq = 0;
+  /** Distinguishes ids across server restarts; events are persisted, so ids must never repeat. */
+  private readonly bootId: string;
   private lastSampleMs: number;
   private seqNo = 0;
   private summaryNow: Summary;
 
   constructor(private readonly opts: EngineOptions) {
     this.rng = createRng(opts.seed);
+    this.bootId = opts.nowMs.toString(36);
     const devices = buildFleet(this.rng, opts.size);
     const n = devices.length;
     this.state = {
@@ -230,7 +233,7 @@ export class SimEngine {
     const w = worstSensor(this.state.readingStatus, idx);
     const isOffline = st === OFFLINE;
     return {
-      id: `ALR-${this.seqNo}-${idx}`,
+      id: `ALR-${this.bootId}-${this.seqNo}-${idx}`,
       deviceIdx: idx,
       deviceId: d?.deviceId ?? "",
       sensor: isOffline ? null : (SENSOR_KEYS[w] ?? null),
@@ -241,6 +244,6 @@ export class SimEngine {
   }
 
   private makeEvent(idx: number, kind: EventKind, st: StatusCode, sensor: Alert["sensor"], value: number | null, iso: string): TelemetryEvent {
-    return { id: `EVT-${++this.eventSeq}`, deviceIdx: idx, deviceId: this.state.devices[idx]?.deviceId ?? "", kind, severity: STATUS_NAMES[st], sensor, value, ts: iso };
+    return { id: `EVT-${this.bootId}-${++this.eventSeq}`, deviceIdx: idx, deviceId: this.state.devices[idx]?.deviceId ?? "", kind, severity: STATUS_NAMES[st], sensor, value, ts: iso };
   }
 }

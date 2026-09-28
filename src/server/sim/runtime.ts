@@ -40,7 +40,13 @@ function startRuntime(): Runtime {
 
   let flushing = false;
   const flush = setInterval(() => {
-    if (!runtime.onFlush || flushing) return;
+    if (flushing) return;
+    // Without a database, drop the batch so pending events cannot grow without bound.
+    // Persistence does a full upsert of the fleet when it (re)attaches.
+    if (!runtime.onFlush) {
+      engine.takeDirty();
+      return;
+    }
     flushing = true;
     runtime
       .onFlush(engine.takeDirty(), engine)
