@@ -1,0 +1,114 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { TelemetryProvider, useLive } from "@/hooks/useTelemetry";
+import { FLOORS, ZONES, type Floor, type Zone } from "@/shared/fleet";
+import type { StatusCode } from "@/shared/status";
+import { AlertsPanel } from "./alerts/AlertsPanel";
+import { DeviceTable } from "./devices/DeviceTable";
+import { DeviceDrawer } from "./drawer/DeviceDrawer";
+import { KpiStrip } from "./kpi/KpiStrip";
+import { STATUS_UI } from "./status";
+import { DisconnectedBanner, TopBar } from "./shell/TopBar";
+
+type Filters = { q: string; status: StatusCode | null; zone: Zone | null; floor: Floor | null };
+const EMPTY: Filters = { q: "", status: null, zone: null, floor: null };
+
+function Board(): React.JSX.Element {
+  const { store, error, retry } = useLive();
+  const [f, setF] = useState<Filters>(EMPTY);
+  const [selected, setSelected] = useState<number | null>(null);
+  const q = f.q.trim().toLowerCase();
+
+  const matches = useCallback(
+    (i: number): boolean => {
+      const d = store.devices[i];
+      if (!d) return false;
+      if (f.status !== null && store.status[i] !== f.status) return false;
+      if (f.zone && d.zone !== f.zone) return false;
+      if (f.floor && d.floor !== f.floor) return false;
+      if (q && !d.deviceId.toLowerCase().includes(q) && !`${d.zone}${d.floor}`.toLowerCase().includes(q) && !d.type.toLowerCase().includes(q)) return false;
+      return true;
+    },
+    [store, f.status, f.zone, f.floor, q],
+  );
+  const filterKey = `${f.status}|${f.zone}|${f.floor}|${q}`;
+  const close = useCallback(() => setSelected(null), []);
+  const active = f.status !== null || f.zone || f.floor || q;
+
+  return (
+    <div className="min-h-screen">
+      <TopBar query={f.q} onQuery={(v) => setF((x) => ({ ...x, q: v }))} />
+      <DisconnectedBanner />
+      <main className="mx-auto flex max-w-[1600px] flex-col gap-4 p-5">
+        {error ? (
+          <div role="alert" className="panel py-16 text-center">
+            <p className="ptitle text-critical">Could not load the fleet</p>
+            <p className="mt-2 text-sm text-muted">{error}</p>
+            <button type="button" onClick={retry} className="mt-4 border border-accent px-4 py-1 text-sm text-accent hover:bg-accent/15">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+              <span className="tracking-[.12em] uppercase">Filters</span>
+              <select aria-label="Status" value={f.status ?? ""} onChange={(e) => setF((x) => ({ ...x, status: e.target.value === "" ? null : (Number(e.target.value) as StatusCode) }))} className="border border-border bg-surface px-2 py-1 text-text">
+                <option value="">All statuses</option>
+                {([2, 1, 3, 0] as StatusCode[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_UI[s].icon} {STATUS_UI[s].label}
+                  </option>
+                ))}
+              </select>
+              <select aria-label="Floor" value={f.floor ?? ""} onChange={(e) => setF((x) => ({ ...x, floor: e.target.value ? (Number(e.target.value) as Floor) : null }))} className="border border-border bg-surface px-2 py-1 text-text">
+                <option value="">All floors</option>
+                {FLOORS.map((fl) => (
+                  <option key={fl} value={fl}>
+                    Floor {fl}
+                  </option>
+                ))}
+              </select>
+              <select aria-label="Zone" value={f.zone ?? ""} onChange={(e) => setF((x) => ({ ...x, zone: (e.target.value || null) as Zone | null }))} className="border border-border bg-surface px-2 py-1 text-text">
+                <option value="">All zones</option>
+                {ZONES.map((z) => (
+                  <option key={z} value={z}>
+                    Zone {z}
+                  </option>
+                ))}
+              </select>
+              {active && (
+                <button type="button" onClick={() => setF(EMPTY)} className="border border-accent/60 px-2 py-1 text-accent hover:bg-accent/15">
+                  Clear all ✕
+                </button>
+              )}
+              <span className="ml-auto hidden md:inline">
+                click a KPI or alert to drill in · <kbd className="num">/</kbd> search · <kbd className="num">Esc</kbd> close
+              </span>
+            </div>
+
+            <KpiStrip status={f.status} onStatus={(s) => setF((x) => ({ ...x, status: s }))} />
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+              <div className="min-w-0 xl:col-span-8">
+                <DeviceTable matches={matches} filterKey={filterKey} selected={selected} onOpen={setSelected} onClear={() => setF(EMPTY)} />
+              </div>
+              <div className="min-w-0 xl:col-span-4">
+                <AlertsPanel onOpen={setSelected} matches={matches} />
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+      {selected !== null && <DeviceDrawer idx={selected} onClose={close} />}
+    </div>
+  );
+}
+
+export function Dashboard(): React.JSX.Element {
+  return (
+    <TelemetryProvider>
+      <Board />
+    </TelemetryProvider>
+  );
+}
