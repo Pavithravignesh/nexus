@@ -59,7 +59,9 @@ export function DisconnectedBanner(): React.JSX.Element | null {
   const { retry, retryInMs } = useLive();
   const store = useTopic("connection");
   const now = useNow();
+  // Serverless hosts end the stream every few minutes by design; only surface a gap that lasts.
   if (store.connection !== "reconnecting" && store.connection !== "stale") return null;
+  if (store.connection === "reconnecting" && now - store.connectionSince < 3000) return null;
   return (
     <div role="alert" className="flex items-center gap-3 border-b border-warning/40 bg-warning/10 px-5 py-2 text-sm text-warning">
       <span aria-hidden>▲</span>

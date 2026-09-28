@@ -4,6 +4,8 @@ import { getRuntime } from "@/server/sim/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Serverless hosts cap a function (Vercel: 300 s); the stream then ends and EventSource reconnects. */
+export const maxDuration = 300;
 
 const HEARTBEAT_MS = 15_000;
 const encoder = new TextEncoder();

@@ -4,7 +4,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017"),
+  /** Optional: without it the dashboard runs from memory only (e.g. a Vercel preview without Atlas). */
+  MONGODB_URI: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional()),
   MONGODB_DB: z.string().min(1).default("nexus"),
   TICK_MS: z.coerce.number().int().min(100).max(60_000).default(1000),
   CHANGE_RATIO: z.coerce.number().gt(0).max(1).default(0.1),

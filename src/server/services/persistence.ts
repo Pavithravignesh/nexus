@@ -1,4 +1,5 @@
 import { ensureIndexes } from "../db/indexes";
+import { env } from "../env";
 import { logger } from "../logger";
 import { devicesRepo } from "../repos/devices.repo";
 import { eventsRepo } from "../repos/events.repo";
@@ -9,6 +10,7 @@ const RETRY_MS = 15_000;
 const log = logger.child({ mod: "persistence" });
 
 export type PersistenceStatus = {
+  enabled: boolean;
   attached: boolean;
   lastError: string | null;
   lastFlush: { at: string; readings: number; events: number; ms: number } | null;
@@ -17,7 +19,7 @@ export type PersistenceStatus = {
 // On globalThis: Next bundles instrumentation.ts and route handlers separately, so a plain
 // module-level object would not be the one /api/health reads.
 const g = globalThis as typeof globalThis & { __nexusPersistence?: PersistenceStatus };
-export const persistenceStatus: PersistenceStatus = (g.__nexusPersistence ??= { attached: false, lastError: null, lastFlush: null });
+export const persistenceStatus: PersistenceStatus = (g.__nexusPersistence ??= { enabled: Boolean(env.MONGODB_URI), attached: false, lastError: null, lastFlush: null });
 
 /**
  * Connect the simulator to MongoDB: indexes, the 10,000 devices, a full snapshot of the
@@ -25,6 +27,10 @@ export const persistenceStatus: PersistenceStatus = (g.__nexusPersistence ??= { 
  * dashboard keeps running from memory and this retries in the background.
  */
 export async function attachPersistence(rt: Runtime): Promise<void> {
+  if (!env.MONGODB_URI) {
+    log.info("MONGODB_URI not set; persistence disabled, running from memory");
+    return;
+  }
   try {
     const started = performance.now();
     await ensureIndexes();

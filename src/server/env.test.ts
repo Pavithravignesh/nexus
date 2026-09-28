@@ -7,10 +7,12 @@ describe("loadEnv", () => {
     expect(e.TICK_MS).toBe(1000);
     expect(e.CHANGE_RATIO).toBe(0.1);
     expect(e.MONGODB_DB).toBe("nexus");
+    expect(e.MONGODB_URI).toBeUndefined();
   });
 
   it("coerces numeric strings", () => {
     expect(loadEnv({ TICK_MS: "500", CHANGE_RATIO: "0.25" })).toMatchObject({ TICK_MS: 500, CHANGE_RATIO: 0.25 });
+    expect(loadEnv({ MONGODB_URI: "" }).MONGODB_URI).toBeUndefined();
   });
 
   it("names every invalid variable", () => {

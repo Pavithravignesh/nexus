@@ -5,6 +5,7 @@ import { env } from "../env";
 const g = globalThis as typeof globalThis & { __nexusMongo?: Promise<MongoClient> };
 
 function connect(): Promise<MongoClient> {
+  if (!env.MONGODB_URI) return Promise.reject(new Error("MONGODB_URI is not set"));
   const client = new MongoClient(env.MONGODB_URI, { serverSelectionTimeoutMS: 3000, maxPoolSize: 10 });
   const p = client.connect();
   // A failed connect must not poison the cache; the next caller retries.

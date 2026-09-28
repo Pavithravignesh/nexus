@@ -117,6 +117,17 @@ describe("SimEngine offline handling", () => {
   });
 });
 
+describe("SimEngine pause handling", () => {
+  it("does not mark the fleet offline after the process was paused", () => {
+    const e = make();
+    run(e, 5);
+    const before = e.summary.byStatus.OFFLINE;
+    const t = e.step(T0 + 5000 + 10 * 60_000); // resumed ten minutes later
+    expect(t.summary.byStatus.OFFLINE).toBeLessThan(before + 50);
+    expect(t.summary.byStatus.NORMAL / 10_000).toBeGreaterThan(0.9);
+  });
+});
+
 describe("SimEngine long run", () => {
   it("settles at a stable health mix instead of drifting offline", () => {
     const e = new SimEngine({ seed: 9, nowMs: T0, changeRatio: 0.1, offlineAfterMs: 30_000, size: 3000 });

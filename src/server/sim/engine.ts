@@ -33,6 +33,8 @@ const GO_OFFLINE_P = 0.0006;
 const COME_BACK_P = 0.02; // with GO_OFFLINE_P: equilibrium ~3% silent, most long enough to show OFFLINE
 const ANOMALIES_PER_TICK = 4;
 const SEVERE_SHARE = 0.25;
+/** A gap this long between ticks means the process was paused (e.g. a frozen serverless instance). */
+const PAUSE_GAP_MS = 5000;
 
 /**
  * The fleet simulator. One instance ticks all 10,000 devices; SSE connections never own a
@@ -52,6 +54,7 @@ export class SimEngine {
   /** Distinguishes ids across server restarts; events are persisted, so ids must never repeat. */
   private readonly bootId: string;
   private lastSampleMs: number;
+  private lastStepMs: number;
   private seqNo = 0;
   private summaryNow: Summary;
 
@@ -98,6 +101,7 @@ export class SimEngine {
       if (st !== NORMAL) this.openAlerts.set(i, this.makeAlert(i, st, iso));
     }
     this.lastSampleMs = now;
+    this.lastStepMs = now;
     this.history.push(this.state.values, now);
     this.summaryNow = summarize(this.state, { seq: 0, nowMs: now, reporting: 0 });
   }
@@ -131,6 +135,15 @@ export class SimEngine {
     const { state, rng, opts } = this;
     const n = state.devices.length;
     const seq = ++this.seqNo;
+    // Treat a long gap as paused time, not silence: shift every lastSeen forward so a resumed
+    // instance does not mark the whole fleet OFFLINE on its first tick.
+    const gap = nowMs - this.lastStepMs;
+    if (gap > PAUSE_GAP_MS) {
+      const shift = gap - 1000; // keep one tick of real elapsed time
+      for (let i = 0; i < n; i++) state.lastSeen[i] = (state.lastSeen[i] ?? 0) + shift;
+      this.lastSampleMs += shift;
+    }
+    this.lastStepMs = nowMs;
     const touched = new Set<number>();
 
     for (let k = 0; k < ANOMALIES_PER_TICK; k++) if (rng.next() < 0.9) this.startAnomaly(rng.int(n), rng.next() < SEVERE_SHARE);

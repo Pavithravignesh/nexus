@@ -36,6 +36,8 @@ export class TelemetryStore {
   alerts: Alert[] = [];
   feed: FeedItem[] = [];
   connection: ConnectionState = "connecting";
+  /** When the current connection state began; lets the UI ignore sub-second planned reconnects. */
+  connectionSince = 0;
   /** Wall-clock time the last frame (or snapshot) arrived; drives "updated Xs ago" and stale. */
   lastFrameAt = 0;
   seq = 0;
@@ -113,6 +115,7 @@ export class TelemetryStore {
   setConnection(state: ConnectionState): void {
     if (this.connection === state) return;
     this.connection = state;
+    this.connectionSince = this.now();
     this.touch("connection");
   }
 

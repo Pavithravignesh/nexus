@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const GET = handleRoute(async () => {
   const rt = getRuntime();
-  const mongo = await pingDb();
+  const mongo = persistenceStatus.enabled ? await pingDb() : null;
   return {
     ok: true,
     uptimeS: Math.round((Date.now() - rt.startedAt) / 1000),
