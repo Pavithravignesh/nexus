@@ -5,7 +5,9 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useLive, useRow } from "@/hooks/useTelemetry";
 import { SENSOR_COUNT, roundFor, sensorAt, sensorIndex, type SensorKey } from "@/shared/sensors";
 import { CRITICAL, OFFLINE, WARNING, worstSensor, type StatusCode } from "@/shared/status";
+import { paginate } from "@/lib/pagination";
 import type { TelemetryStore } from "@/lib/telemetry-store";
+import { Pagination } from "../ui/Pagination";
 import { STATUS_UI, StatusBadge, ago } from "../status";
 
 const RESORT_MS = 3000;
@@ -86,8 +88,12 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [cursor, setCursor] = useState<number | null>(null); // device idx, stable across re-sorts
+  const [size, setSize] = useState(50);
+  // The page belongs to one view (filters + sort + page size): any change starts at page 1.
+  const [pageState, setPageState] = useState({ view: "", page: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const paused = hovered || focused;
+  const view = `${filterKey}|${sort.key}|${sort.dir}|${size}`;
 
   // Live order refreshes every RESORT_MS, never per delta, and pauses while the pointer is
   // over the table so rows do not jump under the cursor.
@@ -113,14 +119,21 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, store.devices, tick, sort, filterKey]);
 
-  const virtual = useVirtualizer({ count: order.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_H, overscan: 12 });
-  const cursorPos = cursor === null ? -1 : order.indexOf(cursor);
+  const pageData = paginate(order, pageState.view === view ? pageState.page : 0, size);
+  const rows = pageData.items;
+  const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_H, overscan: 12 });
+  const cursorPos = cursor === null ? -1 : order.indexOf(cursor); // position in the whole filtered list
 
-  // Keyboard: arrows / Page / Home / End move the highlighted row, Enter opens it.
+  const goToPage = (p: number): void => {
+    setPageState({ view, page: p });
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
+
+  // Keyboard: arrows / Page / Home / End move the highlighted row across pages, Enter opens it.
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (!order.length) return;
-    const page = Math.max(1, Math.floor(520 / ROW_H) - 1);
-    const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1, PageDown: page, PageUp: -page };
+    const screen = Math.max(1, Math.floor(520 / ROW_H) - 1);
+    const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1, PageDown: screen, PageUp: -screen };
     let next: number | null = null;
     if (e.key in moves) next = Math.min(order.length - 1, Math.max(0, (cursorPos < 0 ? -1 : cursorPos) + (moves[e.key] ?? 0)));
     else if (e.key === "Home") next = 0;
@@ -133,7 +146,10 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
     if (next === null) return;
     e.preventDefault();
     setCursor(order[next] ?? null);
-    virtual.scrollToIndex(next, { align: "auto" });
+    const targetPage = Math.floor(next / size);
+    if (targetPage !== pageData.page) setPageState({ view, page: targetPage });
+    const inPage = next - targetPage * size;
+    requestAnimationFrame(() => virtual.scrollToIndex(inPage, { align: "auto" }));
   };
 
   return (
@@ -143,7 +159,7 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
         <span className="num text-xs text-muted">
           {paused && <span className="mr-2 border border-warning/50 px-1.5 text-warning">⏸ live order paused</span>}
           <span className="mr-2 hidden lg:inline">↑↓ move · Enter open ·</span>
-          {order.length.toLocaleString("en-US")} of {store.devices.length.toLocaleString("en-US")} · virtualized
+          {order.length.toLocaleString("en-US")} of {store.devices.length.toLocaleString("en-US")} match · page {pageData.page + 1}/{pageData.pages}
         </span>
       </div>
       <div role="row" className={`${GRID} border-b border-border bg-surface py-2 text-[11px] tracking-[.1em] text-muted uppercase`}>
@@ -162,7 +178,7 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
         ref={scrollRef}
         role="grid"
         aria-label="Device list: arrow keys to move, Enter to open"
-        aria-rowcount={order.length}
+        aria-rowcount={rows.length}
         aria-activedescendant={cursorPos >= 0 && cursor !== null ? `device-row-${cursor}` : undefined}
         tabIndex={0}
         onKeyDown={onKeyDown}
@@ -182,7 +198,7 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
         ) : (
           <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
             {virtual.getVirtualItems().map((v) => {
-              const idx = order[v.index] ?? 0;
+              const idx = rows[v.index] ?? 0;
               return (
                 <div key={idx} style={{ position: "absolute", top: 0, left: 0, right: 0, height: ROW_H, transform: `translateY(${v.start}px)` }}>
                   <Row idx={idx} selected={selected === idx} active={cursor === idx} now={now} onOpen={(i) => { setCursor(i); onOpen(i); }} />
@@ -192,6 +208,7 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
           </div>
         )}
       </div>
+      <Pagination page={pageData} size={size} sizes={[25, 50, 100, 250]} label="Devices" onPage={goToPage} onSize={(n) => setSize(n)} />
     </section>
   );
 }
