@@ -32,3 +32,28 @@ export async function fetchJson<S extends z.ZodType>(url: string, schema: S, ini
 export function postAlertAck(id: string): Promise<Alert> {
   return fetchJson(`/api/alerts/${encodeURIComponent(id)}/ack`, alertSchema, { method: "POST" });
 }
+
+const eventsPageSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      deviceIdx: z.number(),
+      deviceId: z.string(),
+      kind: z.string(),
+      severity: z.string(),
+      sensor: z.string().nullable(),
+      value: z.number().nullable(),
+      ts: z.string(),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+  available: z.boolean(),
+});
+export type EventsPageData = z.infer<typeof eventsPageSchema>;
+
+/** GET /api/events: one page of persisted events, newest first, with a cursor for older ones. */
+export function fetchEvents(q: { deviceId?: string; kind?: string; severity?: string; limit?: number; cursor?: string }, signal?: AbortSignal): Promise<EventsPageData> {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") params.set(k, String(v));
+  return fetchJson(`/api/events?${params.toString()}`, eventsPageSchema, { signal });
+}

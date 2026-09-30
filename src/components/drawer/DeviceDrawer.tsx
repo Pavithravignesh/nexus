@@ -2,8 +2,8 @@
 
 import { scaleLinear } from "d3-scale";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { DeviceTimeline } from "./DeviceTimeline";
 import { useLive, useNow, useRow } from "@/hooks/useTelemetry";
 import { fetchJson } from "@/lib/api";
 import { historySchema } from "@/shared/schemas/api.schema";
@@ -15,7 +15,6 @@ import { STATUS_UI, StatusBadge, ago } from "../status";
 type Point = { t: number; v: number };
 const h = 220;
 const pad = { l: 44, r: 12, t: 12, b: 22 };
-const eventsSchema = z.object({ events: z.array(z.object({ id: z.string(), kind: z.string(), severity: z.string(), sensor: z.string().nullable(), value: z.number().nullable(), ts: z.string() })) });
 
 function TimeSeries({ idx, deviceId, sensor }: { idx: number; deviceId: string; sensor: number }): React.JSX.Element {
   const { store } = useLive();
@@ -161,19 +160,8 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
     for (let j = 0; j < SENSOR_COUNT; j++) if ((store.readingStatus[idx * SENSOR_COUNT + j] ?? 0) > (store.readingStatus[idx * SENSOR_COUNT + w] ?? 0)) w = j;
     return w;
   });
-  const [events, setEvents] = useState<z.infer<typeof eventsSchema>["events"] | null>(null);
   const dialogRef = useFocusTrap<HTMLElement>(onClose);
 
-  useEffect(() => {
-    if (!d) return;
-    let off = false;
-    fetchJson(`/api/devices/${d.deviceId}`, eventsSchema)
-      .then((r) => !off && setEvents(r.events))
-      .catch(() => !off && setEvents([]));
-    return () => {
-      off = true;
-    };
-  }, [d, st]);
 
   if (!d) return <></>;
   const ui = STATUS_UI[st];
@@ -213,26 +201,7 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
 
         <TimeSeries key={`${idx}-${sensor}`} idx={idx} deviceId={d.deviceId} sensor={sensor} />
 
-        <div className="panel">
-          <h3 className="ptitle mb-2">Device timeline</h3>
-          {events === null ? (
-            <div className="skeleton h-16" />
-          ) : events.length === 0 ? (
-            <p className="text-sm text-muted">No recorded transitions yet. Healthy device.</p>
-          ) : (
-            <ul className="num flex flex-col gap-1 text-xs">
-              {events.map((e) => (
-                <li key={e.id} className="flex gap-3">
-                  <span className="text-muted">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
-                  <span>{e.kind}</span>
-                  <span>
-                    {e.sensor ?? ""} {e.value ?? ""} ({e.severity})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <DeviceTimeline deviceId={d.deviceId} statusKey={st} />
       </aside>
     </>
   );
