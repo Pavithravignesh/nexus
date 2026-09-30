@@ -10,6 +10,7 @@ import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
 import { BreachRadar, FleetGauges, ZoneHeatmap } from "./charts/LocationCharts";
 import { DeviceTable } from "./devices/DeviceTable";
 import { DeviceDrawer } from "./drawer/DeviceDrawer";
+import { SavedViews } from "./filters/SavedViews";
 import { KpiStrip } from "./kpi/KpiStrip";
 import { STATUS_UI } from "./status";
 import { ControlRoom3D } from "./three/ControlRoom3D";
@@ -95,8 +96,9 @@ function Board(): React.JSX.Element {
                   Clear all ✕
                 </button>
               )}
+              <SavedViews current={f} canSave={Boolean(active)} onApply={setF} />
               <span className="ml-auto hidden md:inline">
-                click a KPI or alert to drill in · <kbd className="num">/</kbd> search · <kbd className="num">Esc</kbd> close
+                click any chart, KPI or alert to drill in · <kbd className="num">/</kbd> search · <kbd className="num">Esc</kbd> close
               </span>
             </div>
 
