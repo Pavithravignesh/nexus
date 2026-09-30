@@ -57,11 +57,15 @@ export type Alert = {
   severity: AlertSeverity;
   value: number | null;
   raisedAt: string;
+  /** ISO time an operator acknowledged the alert; null while unacknowledged. */
+  ackedAt: string | null;
 };
 
-export type AlertFrame = { seq: number; raised: Alert[]; cleared: string[] };
+export type AlertAck = { id: string; ackedAt: string };
 
-export type EventKind = "raised" | "cleared" | "offline" | "online";
+export type AlertFrame = { seq: number; raised: Alert[]; cleared: string[]; acked: AlertAck[] };
+
+export type EventKind = "raised" | "cleared" | "offline" | "online" | "acked";
 
 export type TelemetryEvent = {
   id: string;

@@ -97,6 +97,49 @@ describe("SimEngine ticks", () => {
   });
 });
 
+describe("SimEngine ack", () => {
+  const small = (): SimEngine => new SimEngine({ seed: 5, nowMs: T0, changeRatio: 0.1, offlineAfterMs: 30_000, size: 500 });
+
+  it("sets ackedAt on the open alert and records an acked event", () => {
+    const e = small();
+    const target = e.alerts()[0];
+    if (!target) throw new Error("fixture has no alerts");
+    expect(target.ackedAt).toBeNull();
+    e.takeDirty();
+    const acked = e.ack(target.id, T0 + 1234);
+    expect(acked).toMatchObject({ id: target.id, ackedAt: new Date(T0 + 1234).toISOString() });
+    expect(e.alertFor(target.deviceIdx)?.ackedAt).toBe(new Date(T0 + 1234).toISOString());
+    const { events } = e.takeDirty();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: "acked", deviceIdx: target.deviceIdx, severity: target.severity, sensor: target.sensor, ts: new Date(T0 + 1234).toISOString() });
+  });
+
+  it("is idempotent: a second ack keeps the first ackedAt and records nothing", () => {
+    const e = small();
+    const target = e.alerts()[0];
+    if (!target) throw new Error("fixture has no alerts");
+    const first = e.ack(target.id, T0 + 1000);
+    e.takeDirty();
+    const second = e.ack(target.id, T0 + 9000);
+    expect(second?.ackedAt).toBe(first?.ackedAt);
+    expect(e.takeDirty().events).toHaveLength(0);
+  });
+
+  it("returns null for an unknown id", () => {
+    const e = small();
+    e.takeDirty();
+    expect(e.ack("ALR-nope")).toBeNull();
+    expect(e.takeDirty().events).toHaveLength(0);
+  });
+
+  it("raises new alerts unacknowledged with an empty acked list per tick", () => {
+    const e = small();
+    const t = e.step(T0 + 1000);
+    expect(t.alerts.acked).toEqual([]);
+    for (const a of t.alerts.raised) expect(a.ackedAt).toBeNull();
+  });
+});
+
 describe("SimEngine offline handling", () => {
   it("is OFFLINE exactly when a device has been silent past the window, after every tick", () => {
     const e = make();

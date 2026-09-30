@@ -120,6 +120,23 @@ export class SimEngine {
     return [...this.openAlerts.values()].sort((a, b) => rank[a.severity] - rank[b.severity] || b.raisedAt.localeCompare(a.raisedAt));
   }
 
+  /**
+   * Acknowledge an open alert. Idempotent: a second ack keeps the first ackedAt and records
+   * no new event. Returns null when no open alert has that id (unknown or already cleared).
+   */
+  ack(alertId: string, nowMs: number = Date.now()): Alert | null {
+    for (const [idx, alert] of this.openAlerts) {
+      if (alert.id !== alertId) continue;
+      if (alert.ackedAt) return alert;
+      const iso = new Date(nowMs).toISOString();
+      const acked: Alert = { ...alert, ackedAt: iso };
+      this.openAlerts.set(idx, acked);
+      this.pendingEvents.push({ ...this.makeEvent(idx, "acked", NORMAL, alert.sensor, alert.value, iso), severity: alert.severity });
+      return acked;
+    }
+    return null;
+  }
+
   alertFor(idx: number): Alert | undefined {
     return this.openAlerts.get(idx);
   }
@@ -215,7 +232,7 @@ export class SimEngine {
       nowMs,
       summary: this.summaryNow,
       delta: { seq, ts: iso, rows: [...touched].map((i) => this.deltaRow(i)) },
-      alerts: { seq, raised, cleared },
+      alerts: { seq, raised, cleared, acked: [] },
       events,
     };
   }
@@ -253,6 +270,7 @@ export class SimEngine {
       severity: STATUS_NAMES[st] as AlertSeverity,
       value: isOffline ? null : roundFor(w, this.state.values[idx * SENSOR_COUNT + w] ?? 0),
       raisedAt: iso,
+      ackedAt: null,
     };
   }
 

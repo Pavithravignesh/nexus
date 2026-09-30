@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ZONE_KEYS, type ZoneKey } from "../fleet";
 import { SENSOR_COUNT, SENSOR_KEYS } from "../sensors";
 import { STATUS_NAMES } from "../status";
-import type { AlertFrame, DeltaFrame, HelloFrame, Summary } from "../types";
+import type { Alert, AlertFrame, DeltaFrame, HelloFrame, Summary } from "../types";
 
 // SSE wire schemas. The browser parses every frame with these; `satisfies` pins each schema
 // to the hand-written type in types.ts so the two cannot drift.
@@ -46,12 +46,14 @@ export const alertSchema = z.object({
   severity: z.enum(["WARNING", "CRITICAL", "OFFLINE"]),
   value: z.number().nullable(),
   raisedAt: isoDate,
-});
+  ackedAt: isoDate.nullable(),
+}) satisfies z.ZodType<Alert>;
 
 export const alertFrameSchema = z.object({
   seq: count,
   raised: z.array(alertSchema),
   cleared: z.array(z.string()),
+  acked: z.array(z.object({ id: z.string().min(1), ackedAt: isoDate })),
 }) satisfies z.ZodType<AlertFrame>;
 
 /** Event names on the stream, mapped to the schema that validates their data. */

@@ -40,8 +40,20 @@ describe("StreamHub", () => {
   it("only includes an alert frame when alerts changed", () => {
     const hub = new StreamHub(1000);
     const t = engine.step(T0 + 3000);
-    const chunk = hub.publish({ ...t, alerts: { seq: t.seq, raised: [], cleared: [] } });
+    const chunk = hub.publish({ ...t, alerts: { seq: t.seq, raised: [], cleared: [], acked: [] } });
     expect(chunk).not.toContain("event: alert");
+  });
+
+  it("publishes an ack immediately as an alert frame at the current seq", () => {
+    const hub = new StreamHub(1000);
+    const t = engine.step(T0 + 3500);
+    hub.publish(t);
+    const got: string[] = [];
+    hub.subscribe((c) => got.push(c));
+    const ackedAt = new Date(T0 + 3600).toISOString();
+    const chunk = hub.publishAck([{ id: "ALR-x", ackedAt }]);
+    expect(got).toEqual([chunk]);
+    expect(chunk).toBe(encodeFrame("alert", t.seq, { seq: t.seq, raised: [], cleared: [], acked: [{ id: "ALR-x", ackedAt }] }));
   });
 
   it("greets new connections with the latest seq and tick length", () => {

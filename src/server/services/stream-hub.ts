@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { StreamEventName } from "@/shared/schemas/stream.schema";
-import type { HelloFrame } from "@/shared/types";
+import type { AlertAck, AlertFrame, HelloFrame } from "@/shared/types";
 import type { TickResult } from "../sim/engine";
 
 export function encodeFrame(event: StreamEventName, id: number, data: unknown): string {
@@ -24,7 +24,15 @@ export class StreamHub {
   publish(tick: TickResult): string {
     this.lastSeq = tick.seq;
     let chunk = encodeFrame("summary", tick.seq, tick.summary) + encodeFrame("delta", tick.seq, tick.delta);
-    if (tick.alerts.raised.length || tick.alerts.cleared.length) chunk += encodeFrame("alert", tick.seq, tick.alerts);
+    if (tick.alerts.raised.length || tick.alerts.cleared.length || tick.alerts.acked.length) chunk += encodeFrame("alert", tick.seq, tick.alerts);
+    this.emitter.emit("frame", chunk);
+    return chunk;
+  }
+
+  /** Fan out acknowledgements now, not on the next tick, as an `alert` frame at the current seq. */
+  publishAck(acked: AlertAck[]): string {
+    const frame: AlertFrame = { seq: this.lastSeq, raised: [], cleared: [], acked };
+    const chunk = encodeFrame("alert", this.lastSeq, frame);
     this.emitter.emit("frame", chunk);
     return chunk;
   }
