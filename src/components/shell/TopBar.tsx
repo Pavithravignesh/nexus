@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useLive, useNow, useTopic } from "@/hooks/useTelemetry";
 import { ago } from "../status";
@@ -54,6 +55,9 @@ export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string)
         
       </div>
 
+      <Link href="/model" className="num border border-border px-2.5 py-1.5 text-xs text-muted hover:text-text">
+        ◇ DATA MODEL
+      </Link>
       <ThemeToggle />
       <time suppressHydrationWarning className="num text-xs text-muted">
         {new Date(now).toLocaleTimeString("en-GB")}
