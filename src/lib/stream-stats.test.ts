@@ -40,6 +40,15 @@ describe("StreamStats", () => {
     expect(s.snapshot().latencyMs).toBe(40);
   });
 
+  it("treats small offsets as synced clocks so latency is not cancelled out", () => {
+    const c = clock(1_000_000);
+    const s = new StreamStats(c.now);
+    s.syncClock(new Date(1_000_000 - 30).toISOString()); // hello took 30 ms to arrive
+    c.advance(1000);
+    s.record(10, { serverTs: new Date(1_000_000 + 1000 - 25).toISOString() }); // summary sent 25 ms ago
+    expect(s.snapshot().latencyMs).toBe(25);
+  });
+
   it("counts reconnects after the first open and tracks the newest event id and client count", () => {
     const s = new StreamStats(() => 5);
     s.markOpened();

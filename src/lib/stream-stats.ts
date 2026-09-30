@@ -3,6 +3,11 @@
 // server's frame timestamps corrected by the clock offset learned from the hello frame.
 
 const WINDOW_MS = 10_000;
+/**
+ * Offsets below this are treated as synced clocks: the hello-based offset also contains the
+ * hello frame's own one-way delay, and subtracting that would erase the latency we measure.
+ */
+const SKEW_THRESHOLD_MS = 2000;
 
 export type StreamSnapshot = {
   /** Frames (SSE events) per second over the last 10 s. */
@@ -45,10 +50,12 @@ export class StreamStats {
     this.connectedAt = this.now();
   }
 
-  /** Learn the server/client clock offset from the hello frame. */
+  /** Learn the server/client clock offset from the hello frame (only real skew is corrected). */
   syncClock(serverTimeIso: string): void {
     const server = Date.parse(serverTimeIso);
-    if (Number.isFinite(server)) this.offsetMs = server - this.now();
+    if (!Number.isFinite(server)) return;
+    const raw = server - this.now();
+    this.offsetMs = Math.abs(raw) > SKEW_THRESHOLD_MS ? raw : 0;
   }
 
   /** Record any received frame; pass the server timestamp for summaries to measure latency. */

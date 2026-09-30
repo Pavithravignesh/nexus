@@ -4,7 +4,7 @@
 
 export function SearchInput({ value, onChange, label, placeholder }: { value: string; onChange: (v: string) => void; label: string; placeholder: string }): React.JSX.Element {
   return (
-    <label className="flex min-w-0 flex-1 items-center gap-1.5 border border-border bg-surface px-2">
+    <label className="flex min-w-0 basis-full items-center gap-1.5 border border-border bg-surface px-2">
       <span aria-hidden className="text-muted">
         ⌕
       </span>
