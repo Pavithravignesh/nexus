@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ZONE_KEYS, type ZoneKey } from "../fleet";
 import { SENSOR_COUNT, SENSOR_KEYS } from "../sensors";
 import { STATUS_NAMES } from "../status";
+import { thresholdsSchema } from "../thresholds";
 import type { Alert, AlertFrame, DeltaFrame, HelloFrame, Summary } from "../types";
 
 // SSE wire schemas. The browser parses every frame with these; `satisfies` pins each schema
@@ -62,6 +63,7 @@ export const streamEvents = {
   summary: summarySchema,
   delta: deltaFrameSchema,
   alert: alertFrameSchema,
+  thresholds: thresholdsSchema,
 } as const;
 
 export type StreamEventName = keyof typeof streamEvents;

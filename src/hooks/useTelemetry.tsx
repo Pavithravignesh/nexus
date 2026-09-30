@@ -6,6 +6,8 @@ import { fleetMetaSchema, latestSchema, summaryResponseSchema } from "@/shared/s
 import { alertFrameSchema, deltaFrameSchema, summarySchema } from "@/shared/schemas/stream.schema";
 import { fetchJson } from "@/lib/api";
 import { TelemetryStore, type Topic } from "@/lib/telemetry-store";
+import { fetchThresholds } from "@/lib/thresholds-api";
+import { setThresholds, thresholdsSchema } from "@/shared/thresholds";
 
 const STALE_AFTER_MS = 5000;
 const MAX_BACKOFF_MS = 30_000;
@@ -14,11 +16,13 @@ type LiveApi = { store: TelemetryStore; error: string | null; retry: () => void;
 const Ctx = createContext<LiveApi | null>(null);
 
 async function loadSnapshot(store: TelemetryStore): Promise<void> {
-  const [meta, latest, sum] = await Promise.all([
+  const [meta, latest, sum, thresholds] = await Promise.all([
     fetchJson("/api/fleet", fleetMetaSchema),
     fetchJson("/api/telemetry/latest", latestSchema),
     fetchJson("/api/summary?alerts=300", summaryResponseSchema),
+    fetchThresholds(),
   ]);
+  setThresholds(thresholds); // before the snapshot, so its reading statuses use the live rules
   store.applySnapshot({ devices: decodeFleetMeta(meta), rows: latest.rows, seq: latest.seq, summary: sum.summary, alerts: sum.alerts });
 }
 
@@ -81,6 +85,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }): 
       es.addEventListener("alert", (e) => {
         const a = parse(alertFrameSchema, (e as MessageEvent<string>).data);
         if (a) store.applyAlerts(a);
+      });
+      es.addEventListener("thresholds", (e) => {
+        const t = parse(thresholdsSchema, (e as MessageEvent<string>).data);
+        if (!t) return;
+        setThresholds(t);
+        store.rederive();
       });
       es.onerror = () => {
         needsReload = true;

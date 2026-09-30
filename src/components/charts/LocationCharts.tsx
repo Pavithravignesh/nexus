@@ -5,6 +5,7 @@ import { useTopic } from "@/hooks/useTelemetry";
 import { FLOORS, ZONES, zoneKey, type Floor, type Zone } from "@/shared/fleet";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import { readingStatus, zoneStatus, type StatusCode } from "@/shared/status";
+import { boundsFor } from "@/shared/thresholds";
 import { STATUS_UI, fmt } from "../status";
 
 /* ------------------------------------------------------------------ zone heatmap */
@@ -174,7 +175,7 @@ export function FleetGauges(): React.JSX.Element {
           {GAUGES.map((g) => {
             const j = sensorIndex(g.key);
             const sensor = SENSORS[j]!;
-            const hi = "hi" in sensor ? sensor.hi : null;
+            const hi = boundsFor(j).hi ?? null;
             const v = s.averages[g.key];
             const f = (x: number): number => a0 + ((Math.min(g.max, Math.max(g.min, x)) - g.min) / (g.max - g.min)) * (a1 - a0);
             const st = readingStatus(j, v) as StatusCode;

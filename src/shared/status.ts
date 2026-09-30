@@ -1,4 +1,5 @@
-import { SENSOR_COUNT, sensorAt } from "./sensors";
+import { SENSOR_COUNT } from "./sensors";
+import { boundsFor } from "./thresholds";
 
 // Status codes are small integers so they fit in Uint8Arrays and packed delta rows.
 export const NORMAL = 0;
@@ -16,9 +17,9 @@ export function statusName(code: StatusCode): StatusName {
   return STATUS_NAMES[code];
 }
 
-/** Reading status of one value against its sensor's thresholds. */
+/** Reading status of one value against its sensor's active thresholds (see thresholds.ts). */
 export function readingStatus(sensorIdx: number, value: number): ReadingStatusCode {
-  const s = sensorAt(sensorIdx);
+  const s = boundsFor(sensorIdx);
   if (s.hi) {
     if (value >= s.hi[1]) return CRITICAL;
     if (value >= s.hi[0]) return WARNING;

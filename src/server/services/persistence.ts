@@ -1,10 +1,13 @@
+import { DEFAULT_THRESHOLDS } from "@/shared/thresholds";
 import { ensureIndexes } from "../db/indexes";
 import { env } from "../env";
 import { logger } from "../logger";
 import { devicesRepo } from "../repos/devices.repo";
 import { eventsRepo } from "../repos/events.repo";
 import { readingsRepo } from "../repos/readings.repo";
+import { settingsRepo } from "../repos/settings.repo";
 import type { Runtime } from "../sim/runtime";
+import { applyThresholds, currentThresholds } from "./thresholds.service";
 
 const RETRY_MS = 15_000;
 const log = logger.child({ mod: "persistence" });
@@ -36,7 +39,9 @@ export async function attachPersistence(rt: Runtime): Promise<void> {
     await ensureIndexes();
     const devices = await devicesRepo.upsertAll(rt.engine.state.devices);
     const readings = await readingsRepo.upsertLatest(rt.engine.state, rt.engine.state.devices.map((d) => d.idx));
+    await restoreThresholds(rt);
     rt.onFlush = flush;
+    rt.onThresholds = saveThresholds;
     persistenceStatus.attached = true;
     persistenceStatus.lastError = null;
     log.info({ devices, readings, ms: Math.round(performance.now() - started) }, "persistence attached");
@@ -47,6 +52,22 @@ export async function attachPersistence(rt: Runtime): Promise<void> {
     setTimeout(() => void attachPersistence(rt), RETRY_MS).unref();
   }
 }
+
+/** Stored alarm rules win at boot, unless an operator edited them while MongoDB was unreachable. */
+async function restoreThresholds(rt: Runtime): Promise<void> {
+  const live = currentThresholds();
+  if (live !== DEFAULT_THRESHOLDS) return settingsRepo.saveThresholds(live);
+  const stored = await settingsRepo.loadThresholds();
+  if (stored) applyThresholds(rt, stored);
+}
+
+const saveThresholds: NonNullable<Runtime["onThresholds"]> = async (t) => {
+  try {
+    await settingsRepo.saveThresholds(t);
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, "thresholds are live but could not be saved");
+  }
+};
 
 const flush: NonNullable<Runtime["onFlush"]> = async (batch, engine) => {
   const started = performance.now();

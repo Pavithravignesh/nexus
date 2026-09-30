@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { StreamEventName } from "@/shared/schemas/stream.schema";
+import type { Thresholds } from "@/shared/thresholds";
 import type { AlertAck, AlertFrame, HelloFrame } from "@/shared/types";
 import type { TickResult } from "../sim/engine";
 
@@ -33,6 +34,13 @@ export class StreamHub {
   publishAck(acked: AlertAck[]): string {
     const frame: AlertFrame = { seq: this.lastSeq, raised: [], cleared: [], acked };
     const chunk = encodeFrame("alert", this.lastSeq, frame);
+    this.emitter.emit("frame", chunk);
+    return chunk;
+  }
+
+  /** Out-of-band frame: every open tab switches to the new alarm rules at once. */
+  publishThresholds(t: Thresholds): string {
+    const chunk = encodeFrame("thresholds", this.lastSeq, t);
     this.emitter.emit("frame", chunk);
     return chunk;
   }

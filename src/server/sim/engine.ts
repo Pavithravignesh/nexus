@@ -237,6 +237,21 @@ export class SimEngine {
     };
   }
 
+  /**
+   * Re-derive every reading status from current values against the active thresholds.
+   * Device statuses, alerts and events are left alone: the next step() transitions them as
+   * usual, so a threshold change produces the same raised/cleared frames as a value change.
+   */
+  applyThresholds(): void {
+    const { values, readingStatus: rs } = this.state;
+    for (let p = 0; p < rs.length; p++) {
+      const next = readingStatus(p % SENSOR_COUNT, values[p] ?? 0);
+      if (rs[p] === next) continue;
+      rs[p] = next;
+      this.dirty.add(Math.floor(p / SENSOR_COUNT)); // stored reading statuses must follow too
+    }
+  }
+
   /** Hand the persistence layer everything that changed since the last call, then forget it. */
   takeDirty(): { idxs: number[]; events: TelemetryEvent[] } {
     const out = { idxs: [...this.dirty], events: this.pendingEvents };
