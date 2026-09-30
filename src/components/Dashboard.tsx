@@ -12,6 +12,7 @@ import { DeviceTable } from "./devices/DeviceTable";
 import { DeviceDrawer } from "./drawer/DeviceDrawer";
 import { KpiStrip } from "./kpi/KpiStrip";
 import { STATUS_UI } from "./status";
+import { ControlRoom3D } from "./three/ControlRoom3D";
 import { DisconnectedBanner, TopBar } from "./shell/TopBar";
 
 type Filters = { q: string; status: StatusCode | null; zone: Zone | null; floor: Floor | null; sensor: number | null };
@@ -101,6 +102,15 @@ function Board(): React.JSX.Element {
 
             <KpiStrip status={f.status} onStatus={(s) => setF((x) => ({ ...x, status: s }))} />
 
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+              <div className="min-w-0 xl:col-span-8">
+                <ControlRoom3D matches={matches} filterKey={filterKey} filtered={Boolean(active)} zone={f.zone} floor={f.floor} selected={selected} onOpen={setSelected} onZone={(z, fl) => setF((x) => ({ ...x, zone: z, floor: fl }))} />
+              </div>
+              <div className="min-w-0 xl:col-span-4">
+                <AlertsPanel onOpen={setSelected} matches={matches} />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="min-w-0 lg:col-span-5">
                 <FleetHealthChart />
@@ -122,14 +132,7 @@ function Board(): React.JSX.Element {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-              <div className="min-w-0 xl:col-span-8">
-                <DeviceTable matches={matches} filterKey={filterKey} selected={selected} onOpen={setSelected} onClear={() => setF(EMPTY)} />
-              </div>
-              <div className="min-w-0 xl:col-span-4">
-                <AlertsPanel onOpen={setSelected} matches={matches} />
-              </div>
-            </div>
+            <DeviceTable matches={matches} filterKey={filterKey} selected={selected} onOpen={setSelected} onClear={() => setF(EMPTY)} />
           </>
         )}
       </main>

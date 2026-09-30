@@ -34,13 +34,15 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
       ) : list.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">No open alerts for this view. The fleet is healthy.</p>
       ) : (
-        <ul className="flex flex-col gap-2 overflow-y-auto pr-1" style={{ maxHeight: 420 }}>
+        <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1" style={{ maxHeight: 300 }}>
           {list.slice(0, 40).map((a) => {
             const ui = STATUS_UI[SEVERITY_CODE[a.severity]];
             const d = describe(a);
             const dev = store.devices[a.deviceIdx];
             return (
-              <li key={a.id} className="slidein">
+              // Only just-raised alerts animate: Chrome restarts a CSS animation whenever React
+              // moves the element, and the list reorders every tick.
+              <li key={a.id} className={now - Date.parse(a.raisedAt) < 1500 ? "slidein" : undefined}>
                 <button type="button" onClick={() => onOpen(a.deviceIdx)} className="grid w-full grid-cols-[4px_1fr_auto] items-center gap-3 border border-border bg-[var(--wash)] py-2 pr-3 text-left hover:bg-[var(--wash-strong)]">
                   <span aria-hidden className="self-stretch" style={{ background: ui.color, boxShadow: `0 0 10px ${ui.color}` }} />
                   <span>
