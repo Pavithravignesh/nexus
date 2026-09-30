@@ -18,13 +18,17 @@ export class StreamHub {
   private readonly emitter = new EventEmitter();
   private lastSeq = 0;
 
-  constructor(private readonly tickMs: number) {
+  constructor(
+    private readonly tickMs: number,
+    private readonly windows: { staleAfterMs: number; offlineAfterMs: number } = { staleAfterMs: 10_000, offlineAfterMs: 30_000 },
+  ) {
     this.emitter.setMaxListeners(0);
   }
 
   publish(tick: TickResult): string {
     this.lastSeq = tick.seq;
-    let chunk = encodeFrame("summary", tick.seq, tick.summary) + encodeFrame("delta", tick.seq, tick.delta);
+    // The live client count rides on the summary so every tab can show it without polling.
+    let chunk = encodeFrame("summary", tick.seq, { ...tick.summary, clients: this.connections }) + encodeFrame("delta", tick.seq, tick.delta);
     if (tick.alerts.raised.length || tick.alerts.cleared.length || tick.alerts.acked.length) chunk += encodeFrame("alert", tick.seq, tick.alerts);
     this.emitter.emit("frame", chunk);
     return chunk;
@@ -46,7 +50,7 @@ export class StreamHub {
   }
 
   hello(nowMs: number): string {
-    const data: HelloFrame = { serverTime: new Date(nowMs).toISOString(), seq: this.lastSeq, tickMs: this.tickMs };
+    const data: HelloFrame = { serverTime: new Date(nowMs).toISOString(), seq: this.lastSeq, tickMs: this.tickMs, ...this.windows };
     return encodeFrame("hello", this.lastSeq, data);
   }
 

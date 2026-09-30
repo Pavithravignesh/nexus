@@ -9,7 +9,6 @@ import type { TelemetryStore } from "@/lib/telemetry-store";
 import { STATUS_UI, StatusBadge, ago } from "../status";
 
 const RESORT_MS = 3000;
-const STALE_MS = 10_000;
 const ROW_H = 34;
 const VALUE_COLS: SensorKey[] = ["temperature", "humidity", "co2", "pm25", "noise"];
 const GRID = "grid grid-cols-[100px_84px_96px_104px_66px_repeat(5,minmax(44px,1fr))_52px] items-center gap-1.5 px-2";
@@ -38,7 +37,7 @@ const Row = memo(function Row({ idx, selected, active, now, onOpen }: { idx: num
   const d = store.devices[idx];
   const st = (store.status[idx] ?? 0) as StatusCode;
   const seen = store.lastSeen[idx] ?? 0;
-  const stale = st !== OFFLINE && now - seen > STALE_MS;
+  const stale = st !== OFFLINE && now - seen > store.staleAfterMs;
   const w = worstSensor(store.readingStatus, idx);
   const breaching = st !== OFFLINE && (store.readingStatus[idx * SENSOR_COUNT + w] ?? 0) > 0;
   const version = store.rowVersion(idx);

@@ -63,5 +63,15 @@ describe("StreamHub", () => {
     const hello = hub.hello(T0 + 4000);
     expect(hello).toContain(`id: ${t.seq}\nevent: hello\n`);
     expect(hello).toContain('"tickMs":1000');
+    expect(hello).toContain('"staleAfterMs":10000,"offlineAfterMs":30000');
+  });
+
+  it("stamps each summary with the live connection count", () => {
+    const hub = new StreamHub(1000, { staleAfterMs: 5000, offlineAfterMs: 20000 });
+    hub.subscribe(() => {});
+    hub.subscribe(() => {});
+    const chunk = hub.publish(engine.step(T0 + 5000));
+    expect(chunk).toContain('"clients":2');
+    expect(hub.hello(T0)).toContain('"staleAfterMs":5000,"offlineAfterMs":20000');
   });
 });

@@ -7,8 +7,8 @@ import { boundsFor } from "@/shared/thresholds";
 import type { Alert } from "@/shared/types";
 import { SEVERITY_CODE, STATUS_UI, ago, fmt } from "../status";
 
-function describe(a: Alert): { title: string; detail: string } {
-  if (!a.sensor) return { title: "Offline", detail: "no report for 30 s" };
+function describe(a: Alert, offlineAfterMs: number): { title: string; detail: string } {
+  if (!a.sensor) return { title: "Offline", detail: `no report for ${Math.round(offlineAfterMs / 1000)} s` };
   const j = sensorIndex(a.sensor);
   const s = SENSORS[j];
   const { hi, lo } = boundsFor(j);
@@ -52,7 +52,7 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
         <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1" style={{ maxHeight: 300 }}>
           {list.slice(0, 40).map((a) => {
             const ui = STATUS_UI[SEVERITY_CODE[a.severity]];
-            const d = describe(a);
+            const d = describe(a, store.offlineAfterMs);
             const dev = store.devices[a.deviceIdx];
             const acked = a.ackedAt !== null;
             return (

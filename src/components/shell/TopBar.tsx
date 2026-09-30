@@ -5,21 +5,12 @@ import { useEffect, useRef } from "react";
 import { useLive, useNow, useTopic } from "@/hooks/useTelemetry";
 import { ago } from "../status";
 import { ThresholdsButton } from "../settings/ThresholdsPanel";
+import { ConnectionPill } from "./ConnectionPill";
 import { ThemeToggle } from "./ThemeToggle";
 
-const PILL = {
-  live: { text: "LIVE · SSE", color: "var(--st-normal)" },
-  stale: { text: "STALE", color: "var(--st-warning)" },
-  connecting: { text: "CONNECTING", color: "var(--accent-2)" },
-  reconnecting: { text: "RECONNECTING", color: "var(--st-warning)" },
-} as const;
-
 export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string) => void }): React.JSX.Element {
-  const store = useTopic("connection");
-  useTopic("summary");
   const now = useNow();
   const input = useRef<HTMLInputElement>(null);
-  const pill = PILL[store.connection];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -47,14 +38,7 @@ export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string)
       </label>
 
       <div className="flex-1" />
-      <div role="status" aria-live="polite" className="num flex items-center gap-2 border px-3 py-1.5 text-xs" style={{ color: pill.color, borderColor: `color-mix(in srgb, ${pill.color} 45%, transparent)`, background: `color-mix(in srgb, ${pill.color} 10%, transparent)` }}>
-
-        <span aria-hidden className={`h-2 w-2 rounded-full ${store.connection === "live" ? "animate-pulse" : ""}`} style={{ background: pill.color }} />
-        {pill.text}
-
-        {store.lastFrameAt > 0 && <span className="text-muted">· updated {ago(store.lastFrameAt, now)} ago</span>}
-        
-      </div>
+      <ConnectionPill />
 
       <ThresholdsButton />
       <Link href="/model" className="num border border-border px-2.5 py-1.5 text-xs text-muted hover:text-text">

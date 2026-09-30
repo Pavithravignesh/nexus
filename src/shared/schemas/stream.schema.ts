@@ -16,10 +16,13 @@ export const helloSchema = z.object({
   serverTime: isoDate,
   seq: count,
   tickMs: z.number().int().positive(),
+  staleAfterMs: z.number().int().positive(),
+  offlineAfterMs: z.number().int().positive(),
 }) satisfies z.ZodType<HelloFrame>;
 
 export const summarySchema = z.object({
   ts: isoDate,
+  clients: count.optional(),
   seq: count,
   total: count,
   reporting: count,

@@ -3,13 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { decodeFleetMeta } from "@/shared/fleet-meta";
 import { fleetMetaSchema, latestSchema, summaryResponseSchema } from "@/shared/schemas/api.schema";
-import { alertFrameSchema, deltaFrameSchema, summarySchema } from "@/shared/schemas/stream.schema";
+import { alertFrameSchema, deltaFrameSchema, helloSchema, summarySchema } from "@/shared/schemas/stream.schema";
 import { fetchJson } from "@/lib/api";
 import { TelemetryStore, type Topic } from "@/lib/telemetry-store";
 import { fetchThresholds } from "@/lib/thresholds-api";
 import { setThresholds, thresholdsSchema } from "@/shared/thresholds";
 
-const STALE_AFTER_MS = 5000;
+/** The stream counts as quiet after this many missed ticks (tick length comes from the server). */
+const QUIET_AFTER_TICKS = 5;
 const MAX_BACKOFF_MS = 30_000;
 
 type LiveApi = { store: TelemetryStore; error: string | null; retry: () => void; retryInMs: number | null };
@@ -71,23 +72,41 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }): 
           loadSnapshot(store).catch(() => {});
         }
       };
+      // Every handler also feeds the live stream metrics (bytes, event id, latency, clients).
+      const raw = (e: Event): { data: string; eventId: number } => {
+        const m = e as MessageEvent<string>;
+        return { data: m.data, eventId: Number(m.lastEventId) || 0 };
+      };
+      es.addEventListener("hello", (e) => {
+        const { data, eventId } = raw(e);
+        const h = parse(helloSchema, data);
+        store.recordFrame(data.length, { eventId });
+        if (h) store.applyHello(h);
+      });
       es.addEventListener("summary", (e) => {
-        const s = parse(summarySchema, (e as MessageEvent<string>).data);
-        if (s) {
-          store.applySummary(s);
-          store.setConnection("live");
-        }
+        const { data, eventId } = raw(e);
+        const s = parse(summarySchema, data);
+        if (!s) return;
+        store.recordFrame(data.length, { eventId, serverTs: s.ts, clients: s.clients });
+        store.applySummary(s);
+        store.setConnection("live");
       });
       es.addEventListener("delta", (e) => {
-        const d = parse(deltaFrameSchema, (e as MessageEvent<string>).data);
+        const { data, eventId } = raw(e);
+        store.recordFrame(data.length, { eventId });
+        const d = parse(deltaFrameSchema, data);
         if (d) store.applyDelta(d);
       });
       es.addEventListener("alert", (e) => {
-        const a = parse(alertFrameSchema, (e as MessageEvent<string>).data);
+        const { data, eventId } = raw(e);
+        store.recordFrame(data.length, { eventId });
+        const a = parse(alertFrameSchema, data);
         if (a) store.applyAlerts(a);
       });
       es.addEventListener("thresholds", (e) => {
-        const t = parse(thresholdsSchema, (e as MessageEvent<string>).data);
+        const { data, eventId } = raw(e);
+        store.recordFrame(data.length, { eventId });
+        const t = parse(thresholdsSchema, data);
         if (!t) return;
         setThresholds(t);
         store.rederive();
@@ -117,7 +136,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }): 
       });
 
     const staleCheck = setInterval(() => {
-      if (store.connection === "live" && Date.now() - store.lastFrameAt > STALE_AFTER_MS) store.setConnection("stale");
+      if (store.connection === "live" && Date.now() - store.lastFrameAt > store.tickMs * QUIET_AFTER_TICKS) store.setConnection("stale");
     }, 1000);
 
     return () => {

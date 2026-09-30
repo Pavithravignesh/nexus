@@ -56,9 +56,18 @@ describe("alertFrameSchema", () => {
 });
 
 describe("helloSchema", () => {
+  const hello = { serverTime: ts, seq: 0, tickMs: 1000, staleAfterMs: 10_000, offlineAfterMs: 30_000 };
+
   it("requires a positive tick", () => {
-    expect(helloSchema.safeParse({ serverTime: ts, seq: 0, tickMs: 1000 }).success).toBe(true);
-    expect(helloSchema.safeParse({ serverTime: ts, seq: 0, tickMs: 0 }).success).toBe(false);
+    expect(helloSchema.safeParse(hello).success).toBe(true);
+    expect(helloSchema.safeParse({ ...hello, tickMs: 0 }).success).toBe(false);
+  });
+
+  it("requires the stale and offline windows so the browser never guesses them", () => {
+    const { staleAfterMs: _s, ...noStale } = hello;
+    void _s;
+    expect(helloSchema.safeParse(noStale).success).toBe(false);
+    expect(helloSchema.safeParse({ ...hello, offlineAfterMs: -1 }).success).toBe(false);
   });
 });
 

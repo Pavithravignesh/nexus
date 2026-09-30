@@ -30,6 +30,8 @@ export type FleetState = {
 
 export type Summary = {
   ts: string;
+  /** Open SSE connections when this frame was sent (set by the stream hub, absent in REST snapshots). */
+  clients?: number;
   seq: number;
   total: number;
   /** Devices that reported in the tick this summary belongs to. */
@@ -78,4 +80,5 @@ export type TelemetryEvent = {
   ts: string;
 };
 
-export type HelloFrame = { serverTime: string; seq: number; tickMs: number };
+/** Sent once per connection: the server clock and the timing rules the browser must use. */
+export type HelloFrame = { serverTime: string; seq: number; tickMs: number; staleAfterMs: number; offlineAfterMs: number };

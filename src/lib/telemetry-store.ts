@@ -1,6 +1,7 @@
 import { SENSOR_COUNT } from "@/shared/sensors";
 import { CRITICAL, WARNING, readingStatus } from "@/shared/status";
-import type { Alert, AlertFrame, DeltaFrame, DeltaRow, DeviceMeta, Summary } from "@/shared/types";
+import type { Alert, AlertFrame, DeltaFrame, DeltaRow, DeviceMeta, HelloFrame, Summary } from "@/shared/types";
+import { StreamStats } from "./stream-stats";
 
 // Client-side live state. Holds the fleet in typed arrays OUTSIDE React so a tick never
 // becomes 10,000 setState calls. Components subscribe to a topic (or one row) through
@@ -8,13 +9,13 @@ import type { Alert, AlertFrame, DeltaFrame, DeltaRow, DeviceMeta, Summary } fro
 // coalesced into one per animation frame.
 
 export type ConnectionState = "connecting" | "live" | "stale" | "reconnecting";
-export type Topic = "fleet" | "summary" | "alerts" | "connection";
+export type Topic = "fleet" | "summary" | "alerts" | "connection" | "stream";
 
 export type TrendPoint = { t: number; normal: number; warning: number; critical: number; offline: number; reporting: number };
 export type FeedItem = { id: string; ts: number; kind: "raised" | "cleared" | "acked"; alert: Alert };
 
 export const TREND_CAPACITY = 180;
-export const FEED_CAPACITY = 60;
+export const FEED_CAPACITY = 500;
 const SEVERITY_RANK = { CRITICAL: 0, WARNING: 1, OFFLINE: 2 } as const;
 
 type Listener = () => void;
@@ -42,8 +43,13 @@ export class TelemetryStore {
   lastFrameAt = 0;
   seq = 0;
   loaded = false;
+  /** Timing rules from the server hello frame; these defaults only apply until it arrives. */
+  tickMs = 1000;
+  staleAfterMs = 10_000;
+  offlineAfterMs = 30_000;
+  readonly stats: StreamStats;
 
-  private readonly versions: Record<Topic, number> = { fleet: 0, summary: 0, alerts: 0, connection: 0 };
+  private readonly versions: Record<Topic, number> = { fleet: 0, summary: 0, alerts: 0, connection: 0, stream: 0 };
   private rowVersions = new Uint32Array(0);
   private readonly listeners = new Map<Topic, Set<Listener>>();
   private readonly rowListeners = new Map<number, Set<Listener>>();
@@ -54,7 +60,25 @@ export class TelemetryStore {
   constructor(
     private readonly schedule: Schedule = defaultSchedule,
     private readonly now: () => number = Date.now,
-  ) {}
+  ) {
+    this.stats = new StreamStats(now);
+  }
+
+  /** A stream connection opened and said hello: adopt the server clock and timing rules. */
+  applyHello(h: HelloFrame): void {
+    this.tickMs = h.tickMs;
+    this.staleAfterMs = h.staleAfterMs;
+    this.offlineAfterMs = h.offlineAfterMs;
+    this.stats.markOpened();
+    this.stats.syncClock(h.serverTime);
+    this.touch("stream", "fleet");
+  }
+
+  /** Account one received SSE frame for the live stream metrics. */
+  recordFrame(bytes: number, opts: { eventId?: number; serverTs?: string; clients?: number } = {}): void {
+    this.stats.record(bytes, opts);
+    if (opts.serverTs !== undefined) this.touch("stream");
+  }
 
   /* ---------- writes ---------- */
 

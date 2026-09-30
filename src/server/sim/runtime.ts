@@ -27,7 +27,7 @@ export function getRuntime(): Runtime {
 function startRuntime(): Runtime {
   const log = logger.child({ mod: "sim" });
   const engine = new SimEngine({ seed: env.SIM_SEED, nowMs: Date.now(), changeRatio: env.CHANGE_RATIO, offlineAfterMs: env.OFFLINE_AFTER_MS });
-  const hub = new StreamHub(env.TICK_MS);
+  const hub = new StreamHub(env.TICK_MS, { staleAfterMs: env.STALE_AFTER_MS, offlineAfterMs: env.OFFLINE_AFTER_MS });
 
   const tick = setInterval(() => {
     try {
