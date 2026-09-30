@@ -11,7 +11,7 @@ export type ConnectionState = "connecting" | "live" | "stale" | "reconnecting";
 export type Topic = "fleet" | "summary" | "alerts" | "connection";
 
 export type TrendPoint = { t: number; normal: number; warning: number; critical: number; offline: number; reporting: number };
-export type FeedItem = { id: string; ts: number; kind: "raised" | "cleared"; alert: Alert };
+export type FeedItem = { id: string; ts: number; kind: "raised" | "cleared" | "acked"; alert: Alert };
 
 export const TREND_CAPACITY = 180;
 export const FEED_CAPACITY = 60;
@@ -107,8 +107,34 @@ export class TelemetryStore {
       if (a) this.feed.unshift({ id: `c-${id}`, ts, kind: "cleared", alert: a });
     }
     for (const a of frame.raised) this.feed.unshift({ id: `r-${a.id}`, ts, kind: "raised", alert: a });
+    let next = [...this.alerts.filter((a) => !cleared.has(a.id)), ...frame.raised];
+    if (frame.acked.length) {
+      const acked = new Map(frame.acked.map((k) => [k.id, k.ackedAt]));
+      next = next.map((a) => {
+        const at = acked.get(a.id);
+        if (at === undefined) return a;
+        const updated = { ...a, ackedAt: at };
+        // The feed line comes from the server frame (not the optimistic ack) so every tab gets exactly one.
+        if (!this.feed.some((f) => f.id === `a-${a.id}`)) this.feed.unshift({ id: `a-${a.id}`, ts, kind: "acked", alert: updated });
+        return updated;
+      });
+    }
     if (this.feed.length > FEED_CAPACITY) this.feed.length = FEED_CAPACITY;
-    this.alerts = sortAlerts([...this.alerts.filter((a) => !cleared.has(a.id)), ...frame.raised]);
+    this.alerts = sortAlerts(next);
+    this.touch("alerts");
+  }
+
+  /** Optimistic acknowledge: mark the alert acked right away; the server's `acked` frame confirms it. */
+  ackLocally(id: string): void {
+    let hit = false;
+    const at = new Date(this.now()).toISOString();
+    const next = this.alerts.map((a) => {
+      if (a.id !== id || a.ackedAt) return a;
+      hit = true;
+      return { ...a, ackedAt: at };
+    });
+    if (!hit) return;
+    this.alerts = sortAlerts(next);
     this.touch("alerts");
   }
 
@@ -185,8 +211,11 @@ export class TelemetryStore {
   }
 }
 
-function sortAlerts(list: Alert[]): Alert[] {
-  return [...list].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || b.raisedAt.localeCompare(a.raisedAt));
+/** Severity (critical, warning, offline), then unacknowledged before acknowledged, then newest first. */
+export function sortAlerts(list: Alert[]): Alert[] {
+  return [...list].sort(
+    (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || Number(a.ackedAt !== null) - Number(b.ackedAt !== null) || b.raisedAt.localeCompare(a.raisedAt),
+  );
 }
 
 /** Count of breaching readings on a device (for "worst sensor" style displays). */

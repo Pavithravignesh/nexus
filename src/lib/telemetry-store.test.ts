@@ -3,7 +3,7 @@ import { SimEngine } from "@/server/sim/engine";
 import { SENSOR_COUNT, sensorIndex } from "@/shared/sensors";
 import { CRITICAL } from "@/shared/status";
 import type { Alert } from "@/shared/types";
-import { TREND_CAPACITY, TelemetryStore } from "./telemetry-store";
+import { TREND_CAPACITY, TelemetryStore, sortAlerts } from "./telemetry-store";
 
 const T0 = Date.UTC(2026, 8, 28, 10);
 
@@ -56,14 +56,60 @@ describe("TelemetryStore", () => {
 
   it("adds raised alerts, removes cleared ones, keeps critical first, and feeds both", () => {
     const { store } = setup();
-    const base = { deviceId: "DEV-00001", deviceIdx: 0, sensor: "co2" as const, value: 1200 };
+    const base = { deviceId: "DEV-00001", deviceIdx: 0, sensor: "co2" as const, value: 1200, ackedAt: null };
     const warn: Alert = { ...base, id: "w", severity: "WARNING", raisedAt: new Date(T0 + 5000).toISOString() };
     const crit: Alert = { ...base, id: "c", severity: "CRITICAL", raisedAt: new Date(T0).toISOString() };
-    store.applyAlerts({ seq: 1, raised: [warn, crit], cleared: [] });
+    store.applyAlerts({ seq: 1, raised: [warn, crit], cleared: [], acked: [] });
     expect(store.alerts[0]?.severity).toBe("CRITICAL");
-    store.applyAlerts({ seq: 2, raised: [], cleared: ["c"] });
+    store.applyAlerts({ seq: 2, raised: [], cleared: ["c"], acked: [] });
     expect(store.alerts.find((a) => a.id === "c")).toBeUndefined();
     expect(store.feed.slice(0, 3).map((f) => f.kind)).toEqual(["cleared", "raised", "raised"]);
+  });
+
+  it("sorts by severity, then unacked before acked, then newest first", () => {
+    const base = { deviceId: "DEV-00001", deviceIdx: 0, sensor: "co2" as const, value: 1200 };
+    const at = (s: number): string => new Date(T0 + s * 1000).toISOString();
+    const list: Alert[] = [
+      { ...base, id: "off", severity: "OFFLINE", sensor: null, value: null, raisedAt: at(9), ackedAt: null },
+      { ...base, id: "w-new", severity: "WARNING", raisedAt: at(8), ackedAt: null },
+      { ...base, id: "c-acked-new", severity: "CRITICAL", raisedAt: at(7), ackedAt: at(10) },
+      { ...base, id: "c-old", severity: "CRITICAL", raisedAt: at(1), ackedAt: null },
+      { ...base, id: "c-new", severity: "CRITICAL", raisedAt: at(5), ackedAt: null },
+      { ...base, id: "c-acked-old", severity: "CRITICAL", raisedAt: at(2), ackedAt: at(10) },
+    ];
+    expect(sortAlerts(list).map((a) => a.id)).toEqual(["c-new", "c-old", "c-acked-new", "c-acked-old", "w-new", "off"]);
+  });
+
+  it("applies acked frames: sets ackedAt, re-sorts, and feeds one ACKED line", () => {
+    const { store } = setup();
+    const target = store.alerts.find((a) => a.severity === "CRITICAL");
+    if (!target) throw new Error("fixture has no critical alert");
+    const ackedAt = new Date(T0 + 1000).toISOString();
+    store.applyAlerts({ seq: 1, raised: [], cleared: [], acked: [{ id: target.id, ackedAt }] });
+    const updated = store.alerts.find((a) => a.id === target.id);
+    expect(updated?.ackedAt).toBe(ackedAt);
+    const crits = store.alerts.filter((a) => a.severity === "CRITICAL");
+    expect(crits.at(-1)?.id).toBe(target.id); // the only acked critical sinks below unacked ones
+    expect(store.feed[0]).toMatchObject({ kind: "acked", id: `a-${target.id}` });
+    store.applyAlerts({ seq: 1, raised: [], cleared: [], acked: [{ id: target.id, ackedAt }] });
+    expect(store.feed.filter((f) => f.kind === "acked")).toHaveLength(1);
+    store.applyAlerts({ seq: 2, raised: [], cleared: [], acked: [{ id: "nope", ackedAt }] });
+    expect(store.feed.filter((f) => f.kind === "acked")).toHaveLength(1);
+  });
+
+  it("acks locally right away and notifies alerts subscribers", () => {
+    const { store, pending } = setup();
+    const target = store.alerts[0];
+    if (!target) throw new Error("fixture has no alerts");
+    let n = 0;
+    store.subscribe("alerts", () => n++);
+    store.ackLocally(target.id);
+    pending.splice(0).forEach((fn) => fn());
+    expect(n).toBe(1);
+    expect(store.alerts.find((a) => a.id === target.id)?.ackedAt).toBe(new Date(T0).toISOString());
+    store.ackLocally("unknown");
+    store.ackLocally(target.id); // already acked: no-op
+    expect(pending).toHaveLength(0);
   });
 
   it("ignores deltas that arrive before the first snapshot", () => {

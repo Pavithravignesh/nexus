@@ -1,6 +1,7 @@
 "use client";
 
 import { useNow, useTopic } from "@/hooks/useTelemetry";
+import { postAlertAck } from "@/lib/api";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import type { Alert } from "@/shared/types";
 import { SEVERITY_CODE, STATUS_UI, ago, fmt } from "../status";
@@ -18,15 +19,25 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
   const store = useTopic("alerts");
   const now = useNow();
   const list = store.alerts.filter((a) => matches(a.deviceIdx));
-  const crit = list.filter((a) => a.severity === "CRITICAL").length;
+  const critAll = list.filter((a) => a.severity === "CRITICAL");
+  const critAcked = critAll.filter((a) => a.ackedAt !== null).length;
+  const crit = critAll.length - critAcked;
   const warn = list.filter((a) => a.severity === "WARNING").length;
+
+  const ack = (id: string): void => {
+    store.ackLocally(id);
+    postAlertAck(id).catch((err: unknown) => console.warn("alert ack failed", id, err));
+  };
 
   return (
     <section aria-label="Live alerts" className="panel flex min-h-0 flex-col">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className="ptitle">Live alerts</h2>
         <span aria-live="polite" className="num text-xs text-muted">
-          <span className="text-critical">{fmt(crit)} critical</span> · <span className="text-warning">{fmt(warn)} warning</span>
+          <span className="text-critical">
+            {fmt(crit)} critical{critAcked > 0 && <span className="text-muted"> ({fmt(critAcked)} acked)</span>}
+          </span>{" "}
+          · <span className="text-warning">{fmt(warn)} warning</span>
         </span>
       </div>
       {!store.loaded ? (
@@ -39,10 +50,15 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
             const ui = STATUS_UI[SEVERITY_CODE[a.severity]];
             const d = describe(a);
             const dev = store.devices[a.deviceIdx];
+            const acked = a.ackedAt !== null;
             return (
-              <li key={a.id} className="slidein">
-                <button type="button" onClick={() => onOpen(a.deviceIdx)} className="grid w-full grid-cols-[4px_1fr_auto] items-center gap-3 border border-border bg-[var(--wash)] py-2 pr-3 text-left hover:bg-[var(--wash-strong)]">
-                  <span aria-hidden className="self-stretch" style={{ background: ui.color, boxShadow: `0 0 10px ${ui.color}` }} />
+              <li
+                key={a.id}
+                className="slidein grid grid-cols-[4px_1fr_auto] items-stretch gap-3 border border-border bg-[var(--wash)] pr-3 hover:bg-[var(--wash-strong)]"
+                style={acked ? { opacity: 0.55 } : undefined}
+              >
+                <span aria-hidden style={{ background: ui.color, boxShadow: acked ? undefined : `0 0 10px ${ui.color}` }} />
+                <button type="button" onClick={() => onOpen(a.deviceIdx)} className="grid grid-cols-[1fr_auto] items-center gap-3 py-2 text-left">
                   <span>
                     <span className="block text-sm">
                       <b className="mr-1.5 font-semibold" style={{ color: ui.color }}>
@@ -56,6 +72,22 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
                   </span>
                   <span className="num text-[11px] text-muted">{ago(Date.parse(a.raisedAt), now)}</span>
                 </button>
+                <span className="flex items-center">
+                  {acked ? (
+                    <span className="num text-[10px] text-muted" title={`Acknowledged ${new Date(a.ackedAt ?? "").toLocaleTimeString("en-GB")}`}>
+                      ✓ ACK
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => ack(a.id)}
+                      aria-label={`Acknowledge ${d.title} alert on ${a.deviceId}`}
+                      className="num border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted hover:bg-[var(--wash)] hover:text-[var(--text)]"
+                    >
+                      Ack
+                    </button>
+                  )}
+                </span>
               </li>
             );
           })}
@@ -66,7 +98,7 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
         <ul className="num flex flex-col gap-0.5 text-[11px] text-muted">
           {store.feed.slice(0, 8).map((f) => (
             <li key={f.id} className="truncate">
-              <span style={{ color: f.kind === "cleared" ? "var(--st-normal)" : STATUS_UI[SEVERITY_CODE[f.alert.severity]].color }}>
+              <span style={{ color: f.kind === "cleared" ? "var(--st-normal)" : f.kind === "acked" ? "var(--accent-2)" : STATUS_UI[SEVERITY_CODE[f.alert.severity]].color }}>
                 {new Date(f.ts).toLocaleTimeString("en-GB")} {f.kind.toUpperCase().padEnd(8)}
               </span>{" "}
               {f.alert.deviceId} {f.alert.sensor ?? "offline"} {f.alert.value ?? ""}
