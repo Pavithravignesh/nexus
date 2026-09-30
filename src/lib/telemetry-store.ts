@@ -112,6 +112,20 @@ export class TelemetryStore {
     this.touch("alerts");
   }
 
+  /**
+   * Recompute every reading status from current values against the active thresholds (after
+   * setThresholds). Device statuses and alerts stay as the server sent them until its next tick.
+   * Alerts are touched too because their text quotes the bounds.
+   */
+  rederive(): void {
+    for (let p = 0; p < this.values.length; p++) this.readingStatus[p] = readingStatus(p % SENSOR_COUNT, this.values[p] ?? 0);
+    for (let i = 0; i < this.rowVersions.length; i++) {
+      this.rowVersions[i] = (this.rowVersions[i] ?? 0) + 1;
+      this.dirtyRows.add(i);
+    }
+    this.touch("fleet", "summary", "alerts");
+  }
+
   setConnection(state: ConnectionState): void {
     if (this.connection === state) return;
     this.connection = state;

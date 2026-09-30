@@ -2,15 +2,19 @@
 
 import { useNow, useTopic } from "@/hooks/useTelemetry";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
+import { boundsFor } from "@/shared/thresholds";
 import type { Alert } from "@/shared/types";
 import { SEVERITY_CODE, STATUS_UI, ago, fmt } from "../status";
 
 function describe(a: Alert): { title: string; detail: string } {
   if (!a.sensor) return { title: "Offline", detail: "no report for 30 s" };
-  const s = SENSORS[sensorIndex(a.sensor)];
-  const bound = s && ("hi" in s && a.value !== null && a.value >= s.hi[0] ? s.hi : "lo" in s ? s.lo : undefined);
+  const j = sensorIndex(a.sensor);
+  const s = SENSORS[j];
+  const { hi, lo } = boundsFor(j);
+  const high = hi !== undefined && a.value !== null && a.value >= hi[0];
+  const bound = high ? hi : lo;
   const limit = bound ? (a.severity === "CRITICAL" ? bound[1] : bound[0]) : null;
-  const op = s && "hi" in s && a.value !== null && a.value >= s.hi[0] ? ">" : "<";
+  const op = high ? ">" : "<";
   return { title: s?.label ?? a.sensor, detail: `${a.value !== null ? fmt(a.value) : "—"} ${s?.unit ?? ""}${limit !== null ? ` ${op} ${fmt(limit)}` : ""}` };
 }
 

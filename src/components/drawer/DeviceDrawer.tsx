@@ -8,6 +8,7 @@ import { fetchJson } from "@/lib/api";
 import { historySchema } from "@/shared/schemas/api.schema";
 import { SENSORS, SENSOR_COUNT, roundFor, sensorAt } from "@/shared/sensors";
 import { OFFLINE, readingStatus, type StatusCode } from "@/shared/status";
+import { boundsFor } from "@/shared/thresholds";
 import { STATUS_UI, StatusBadge, ago } from "../status";
 
 type Point = { t: number; v: number };
@@ -53,9 +54,11 @@ function TimeSeries({ idx, deviceId, sensor }: { idx: number; deviceId: string; 
     [store, idx, sensor],
   );
 
+  // Live alarm rules: a different object whenever this sensor's bounds change, so the memo recomputes.
+  const limits = boundsFor(sensor);
   const chart = useMemo(() => {
     if (!points?.length) return null;
-    const bounds = [...(s.hi ?? []), ...(s.lo ?? [])];
+    const bounds = [...(limits.hi ?? []), ...(limits.lo ?? [])];
     const vs = points.map((p) => p.v);
     let mn = Math.min(...vs, ...bounds.filter((b) => Math.abs(b - vs[0]!) < Math.abs(vs[0]!) * 0.6 + 5));
     let mx = Math.max(...vs, ...bounds.filter((b) => Math.abs(b - vs[0]!) < Math.abs(vs[0]!) * 0.6 + 5));
@@ -71,10 +74,11 @@ function TimeSeries({ idx, deviceId, sensor }: { idx: number; deviceId: string; 
       return b > a ? { y: a, h: b - a } : null;
     };
     const bands: { k: 1 | 2; r: { y: number; h: number } | null; line: number }[] = [];
-    if (s.hi) bands.push({ k: 1, r: band(s.hi[0], s.hi[1]), line: s.hi[0] }, { k: 2, r: band(s.hi[1], mx + span), line: s.hi[1] });
-    if (s.lo) bands.push({ k: 1, r: band(s.lo[1], s.lo[0]), line: s.lo[0] }, { k: 2, r: band(mn - span, s.lo[1]), line: s.lo[1] });
+    const { hi, lo } = limits;
+    if (hi) bands.push({ k: 1, r: band(hi[0], hi[1]), line: hi[0] }, { k: 2, r: band(hi[1], mx + span), line: hi[1] });
+    if (lo) bands.push({ k: 1, r: band(lo[1], lo[0]), line: lo[0] }, { k: 2, r: band(mn - span, lo[1]), line: lo[1] });
     return { x, y, d, bands, ticks: y.ticks(4), mn, mx };
-  }, [points, width, s]);
+  }, [points, width, limits]);
 
   const hp = hover !== null && points ? points[hover] : null;
   return (
