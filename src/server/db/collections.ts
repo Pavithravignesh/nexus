@@ -30,7 +30,11 @@ export type EventDoc = {
   ts: Date;
 };
 
+/** One document per setting; `value` is validated by the repo on the way out. */
+export type SettingDoc = { _id: string; value: unknown; updatedAt: Date };
+
 export const collections = {
+  settings: async (): Promise<Collection<SettingDoc>> => (await getDb()).collection<SettingDoc>("settings"),
   devices: async (): Promise<Collection<DeviceDoc>> => (await getDb()).collection<DeviceDoc>("devices"),
   readings: async (): Promise<Collection<ReadingDoc>> => (await getDb()).collection<ReadingDoc>("latest_readings"),
   events: async (): Promise<Collection<EventDoc>> => (await getDb()).collection<EventDoc>("events"),

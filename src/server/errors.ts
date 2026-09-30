@@ -25,6 +25,22 @@ export function parseQuery<S extends z.ZodType>(schema: S, url: URL): z.infer<S>
   return parsed.data;
 }
 
+/** Parse a JSON request body with zod; bad JSON or a schema failure is a 400 listing each issue by path. */
+export async function parseBody<S extends z.ZodType>(schema: S, req: Request): Promise<z.infer<S>> {
+  let json: unknown;
+  try {
+    json = await req.json();
+  } catch {
+    throw new ApiError(400, "VALIDATION_FAILED", "Body is not valid JSON");
+  }
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
+    throw new ApiError(400, "VALIDATION_FAILED", "Invalid body", issues);
+  }
+  return parsed.data;
+}
+
 /**
  * Wrap a JSON route handler: request id, one completion log line, and the
  * { ok, data } | { ok, error } envelope. Unknown errors become 500 with the message hidden.

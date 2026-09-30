@@ -1,3 +1,4 @@
+import type { Thresholds } from "@/shared/thresholds";
 import { env } from "../env";
 import { logger } from "../logger";
 import { StreamHub } from "../services/stream-hub";
@@ -9,6 +10,8 @@ export type Runtime = {
   startedAt: number;
   /** Set by the persistence layer; called every FLUSH_INTERVAL_MS with what changed. */
   onFlush: ((batch: ReturnType<SimEngine["takeDirty"]>, engine: SimEngine) => Promise<void>) | null;
+  /** Set by the persistence layer; saves the alarm rules after an operator edit. Must not reject. */
+  onThresholds: ((t: Thresholds) => Promise<void>) | null;
   stop(): void;
 };
 
@@ -61,6 +64,7 @@ function startRuntime(): Runtime {
     hub,
     startedAt: Date.now(),
     onFlush: null,
+    onThresholds: null,
     stop() {
       clearInterval(tick);
       clearInterval(flush);

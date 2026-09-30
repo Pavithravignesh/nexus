@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { SENSOR_COUNT, sensorIndex } from "./sensors";
 import { CRITICAL, NORMAL, OFFLINE, WARNING, deviceStatus, isStale, readingStatus, worstSensor, zoneStatus } from "./status";
+import { DEFAULT_THRESHOLDS, setThresholds } from "./thresholds";
 
 const T = sensorIndex("temperature");
 const O2 = sensorIndex("o2");
@@ -26,6 +27,25 @@ describe("readingStatus", () => {
     expect(readingStatus(P, 1041)).toBe(WARNING);
     expect(readingStatus(P, 969)).toBe(CRITICAL);
     expect(readingStatus(P, 1060)).toBe(CRITICAL);
+  });
+
+  describe("with custom thresholds", () => {
+    afterEach(() => setThresholds(DEFAULT_THRESHOLDS));
+
+    it("uses the active bounds instead of the catalogue defaults", () => {
+      setThresholds({ ...DEFAULT_THRESHOLDS, temperature: { hi: [25, 28] }, o2: { lo: [20.5, 20] } });
+      expect(readingStatus(T, 24.9)).toBe(NORMAL);
+      expect(readingStatus(T, 25)).toBe(WARNING);
+      expect(readingStatus(T, 28)).toBe(CRITICAL);
+      expect(readingStatus(O2, 20.5)).toBe(WARNING);
+      expect(readingStatus(O2, 20)).toBe(CRITICAL);
+    });
+
+    it("leaves sensors that were not edited on their defaults", () => {
+      setThresholds({ ...DEFAULT_THRESHOLDS, temperature: { hi: [25, 28] } });
+      expect(readingStatus(P, 984)).toBe(WARNING);
+      expect(readingStatus(P, 1013)).toBe(NORMAL);
+    });
   });
 });
 
