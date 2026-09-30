@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useLive, useNow, useTopic } from "@/hooks/useTelemetry";
 import { ago } from "../status";
+import { ThresholdsButton } from "../settings/ThresholdsPanel";
 import { ThemeToggle } from "./ThemeToggle";
 
 const PILL = {
@@ -55,6 +56,7 @@ export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string)
         
       </div>
 
+      <ThresholdsButton />
       <Link href="/model" className="num border border-border px-2.5 py-1.5 text-xs text-muted hover:text-text">
         ◇ DATA MODEL
       </Link>
