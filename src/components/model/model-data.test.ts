@@ -32,7 +32,7 @@ function setup(): { store: TelemetryStore; engine: SimEngine } {
   return { store, engine };
 }
 
-const alert = (idx: number): Alert => ({ id: `A-${idx}`, deviceIdx: idx, deviceId: `DEV-${String(idx + 1).padStart(5, "0")}`, sensor: "co2", severity: "CRITICAL", value: 1600, raisedAt: new Date(T0).toISOString() });
+const alert = (idx: number): Alert => ({ id: `A-${idx}`, deviceIdx: idx, deviceId: `DEV-${String(idx + 1).padStart(5, "0")}`, sensor: "co2", severity: "CRITICAL", value: 1600, raisedAt: new Date(T0).toISOString(), ackedAt: null });
 
 describe("ERD catalogue", () => {
   it("has the eight entities and relations only between known entities", () => {

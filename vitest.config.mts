@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    // Simulator tests tick a 10,000-device fleet many times; allow for slow or busy machines.
+    testTimeout: 20_000,
     // `src/server/env.ts` validates process.env at import time. These values let
     // server modules load in tests without a real .env; no test connects to Mongo.
     env: {
