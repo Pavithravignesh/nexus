@@ -6,6 +6,7 @@ import { EMPTY_FILTERS, FILTER_OPTIONS, filtersKey, isFiltered, matchesDevice, t
 import type { DeviceType, Floor, Zone } from "@/shared/fleet";
 import { SENSORS } from "@/shared/sensors";
 import type { StatusCode } from "@/shared/status";
+import { ActivityFeed } from "./alerts/ActivityFeed";
 import { AlertsPanel } from "./alerts/AlertsPanel";
 import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
 import { BreachRadar, FleetGauges, ZoneHeatmap } from "./charts/LocationCharts";
@@ -124,11 +125,14 @@ function Board(): React.JSX.Element {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="min-w-0 lg:col-span-6">
+              <div className="min-w-0 lg:col-span-4">
                 <ZoneHeatmap zone={f.zone} floor={f.floor} onZone={(z, fl) => setF((x) => ({ ...x, zone: z, floor: fl }))} />
               </div>
-              <div className="min-w-0 lg:col-span-6">
+              <div className="min-w-0 lg:col-span-4">
                 <FleetGauges />
+              </div>
+              <div className="min-w-0 lg:col-span-4">
+                <ActivityFeed onOpen={setSelected} matches={matches} />
               </div>
             </div>
 

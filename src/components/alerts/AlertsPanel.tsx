@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useNow, useTopic } from "@/hooks/useTelemetry";
 import { postAlertAck } from "@/lib/api";
+import { ALL_SEVERITIES, filterAlerts, toggleInSet, type AckFilter, type AlertSort } from "@/lib/list-filters";
+import { paginate } from "@/lib/pagination";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import { boundsFor } from "@/shared/thresholds";
-import type { Alert } from "@/shared/types";
+import type { Alert, AlertSeverity } from "@/shared/types";
 import { SEVERITY_CODE, STATUS_UI, ago, fmt } from "../status";
+import { Chip, MiniSelect, SearchInput } from "../ui/ListControls";
+import { Pagination } from "../ui/Pagination";
 
 function describe(a: Alert, offlineAfterMs: number): { title: string; detail: string } {
   if (!a.sensor) return { title: "Offline", detail: `no report for ${Math.round(offlineAfterMs / 1000)} s` };
@@ -19,14 +24,40 @@ function describe(a: Alert, offlineAfterMs: number): { title: string; detail: st
   return { title: s?.label ?? a.sensor, detail: `${a.value !== null ? fmt(a.value) : "—"} ${s?.unit ?? ""}${limit !== null ? ` ${op} ${fmt(limit)}` : ""}` };
 }
 
+const ACK_OPTIONS = [
+  { value: "all", label: "Any ack state" },
+  { value: "open", label: "Unacknowledged" },
+  { value: "acked", label: "Acknowledged" },
+] as const satisfies readonly { value: AckFilter; label: string }[];
+const SORT_OPTIONS = [
+  { value: "severity", label: "Severity first" },
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+] as const satisfies readonly { value: AlertSort; label: string }[];
+
+/** Open alerts for the dashboard filter, with their own search, severity/ack filters, sort and pages. */
 export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void; matches: (idx: number) => boolean }): React.JSX.Element {
   const store = useTopic("alerts");
   const now = useNow();
-  const list = store.alerts.filter((a) => matches(a.deviceIdx));
-  const critAll = list.filter((a) => a.severity === "CRITICAL");
+  const [q, setQ] = useState("");
+  const [severities, setSeverities] = useState<ReadonlySet<AlertSeverity>>(new Set(ALL_SEVERITIES));
+  const [ackFilter, setAckFilter] = useState<AckFilter>("all");
+  const [sort, setSort] = useState<AlertSort>("severity");
+  const [size, setSize] = useState(10);
+  const [pageState, setPageState] = useState({ view: "", page: 0 });
+
+  const inView = store.alerts.filter((a) => matches(a.deviceIdx));
+  const list = filterAlerts(inView, store.devices, { q, severities, ack: ackFilter, sort });
+  // The page belongs to one set of alert filters; changing any of them starts at page 1.
+  const view = `${q}|${[...severities].join()}|${ackFilter}|${sort}|${size}`;
+  const page = paginate(list, pageState.view === view ? pageState.page : 0, size);
+  const critAll = inView.filter((a) => a.severity === "CRITICAL");
   const critAcked = critAll.filter((a) => a.ackedAt !== null).length;
-  const crit = critAll.length - critAcked;
-  const warn = list.filter((a) => a.severity === "WARNING").length;
+  const counts: Record<AlertSeverity, number> = {
+    CRITICAL: critAll.length,
+    WARNING: inView.filter((a) => a.severity === "WARNING").length,
+    OFFLINE: inView.filter((a) => a.severity === "OFFLINE").length,
+  };
 
   const ack = (id: string): void => {
     store.ackLocally(id);
@@ -34,23 +65,35 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
   };
 
   return (
-    <section aria-label="Live alerts" className="panel flex min-h-0 flex-col">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+    <section aria-label="Live alerts" className="panel flex min-h-0 flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
         <h2 className="ptitle">Live alerts</h2>
         <span aria-live="polite" className="num text-xs text-muted">
           <span className="text-critical">
-            {fmt(crit)} critical{critAcked > 0 && <span className="text-muted"> ({fmt(critAcked)} acked)</span>}
+            {fmt(critAll.length - critAcked)} critical{critAcked > 0 && <span className="text-muted"> ({fmt(critAcked)} acked)</span>}
           </span>{" "}
-          · <span className="text-warning">{fmt(warn)} warning</span>
+          · <span className="text-warning">{fmt(counts.WARNING)} warning</span>
         </span>
       </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <SearchInput value={q} onChange={setQ} label="Search alerts" placeholder="Device, sensor, zone, rack…" />
+        {ALL_SEVERITIES.map((s) => (
+          <Chip key={s} on={severities.has(s)} color={STATUS_UI[SEVERITY_CODE[s]].color} onClick={() => setSeverities((set) => toggleInSet(set, s))}>
+            {STATUS_UI[SEVERITY_CODE[s]].icon} {s.slice(0, 4)} {fmt(counts[s])}
+          </Chip>
+        ))}
+        <MiniSelect label="Acknowledgement" value={ackFilter} options={ACK_OPTIONS} onChange={setAckFilter} />
+        <MiniSelect label="Sort alerts" value={sort} options={SORT_OPTIONS} onChange={setSort} />
+      </div>
+
       {!store.loaded ? (
         <div className="flex flex-col gap-2">{Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton h-14" />)}</div>
       ) : list.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted">No open alerts for this view. The fleet is healthy.</p>
+        <p className="py-10 text-center text-sm text-muted">{inView.length === 0 ? "No open alerts for this view. The fleet is healthy." : "No alerts match these alert filters."}</p>
       ) : (
-        <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1" style={{ maxHeight: 300 }}>
-          {list.slice(0, 40).map((a) => {
+        <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1" style={{ maxHeight: 330 }}>
+          {page.items.map((a) => {
             const ui = STATUS_UI[SEVERITY_CODE[a.severity]];
             const d = describe(a, store.offlineAfterMs);
             const dev = store.devices[a.deviceIdx];
@@ -99,20 +142,7 @@ export function AlertsPanel({ onOpen, matches }: { onOpen: (idx: number) => void
           })}
         </ul>
       )}
-      <div className="mt-3 border-t border-border pt-2">
-        <h3 className="hint mb-1 uppercase">Activity feed</h3>
-        <ul className="num flex flex-col gap-0.5 text-[11px] text-muted">
-          {store.feed.slice(0, 8).map((f) => (
-            <li key={f.id} className="truncate">
-              <span style={{ color: f.kind === "cleared" ? "var(--st-normal)" : f.kind === "acked" ? "var(--accent-2)" : STATUS_UI[SEVERITY_CODE[f.alert.severity]].color }}>
-                {new Date(f.ts).toLocaleTimeString("en-GB")} {f.kind.toUpperCase().padEnd(8)}
-              </span>{" "}
-              {f.alert.deviceId} {f.alert.sensor ?? "offline"} {f.alert.value ?? ""}
-            </li>
-          ))}
-          {store.feed.length === 0 && <li>Waiting for the first transitions…</li>}
-        </ul>
-      </div>
+      <Pagination page={page} size={size} sizes={[10, 25, 50]} label="Alerts" onPage={(p) => setPageState({ view, page: p })} onSize={setSize} />
     </section>
   );
 }
