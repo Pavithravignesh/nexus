@@ -27,14 +27,15 @@ curl -N http://localhost:3000/api/stream     # watch the live SSE frames
 
 Everything cross-filters: clicking a KPI, donut slice, radar sensor, heatmap zone or 3D rack filters the table, alerts and 3D view together.
 
-- **Top bar:** search (`/`), connection pill (LIVE / STALE / RECONNECTING, "updated Xs ago"), **⚙ Thresholds** editor, **◇ Data model** page, dark/light toggle (dark by default, remembered), clock. A banner with **Retry** appears when the stream drops for more than 3 s; data is dimmed, never blanked.
-- **Filters:** status, floor, zone, breaching sensor, search; **saved views** (name, recall, delete; per browser).
+- **Top bar:** search (`/`), a measured connection pill (state · latency · tick rate · KB/s; click for connected-since, frames, throughput, reconnects, viewers on the server and the server's stale/offline windows), **⚙ Thresholds** editor, **◇ Data model** page, dark/light toggle (dark by default, remembered), clock. A banner with **Retry** appears when the stream drops for more than 3 s; data is dimmed, never blanked.
+- **Filters:** status, floor, zone, device type, breaching sensor, stale only, and search (id, name, type, zone key, rack, room); **saved views** (name, recall, delete; per browser).
 - **KPI strip:** total, normal, warning, critical, offline and devices reporting per tick, with 60 s sparklines.
 - **Industrial 3D Control Room:** 4 halls × 6 zones × 3 racks, one LED per device (all 10,000 in one three.js InstancedMesh). Rack strips show zone health; critical LEDs pulse. Hover to inspect, click a rack to filter, click an LED to open the device; drag to orbit, ctrl+scroll to zoom.
-- **Live alerts + activity feed:** critical first, unacknowledged before acknowledged, newest first. **Ack** an alert and every open tab sees it within a second.
+- **Live alerts:** own search, severity chips with counts, acknowledgement filter, sort (severity / newest / oldest), 10/25/50 pages. **Ack** an alert and every open tab sees it within a second.
+- **Activity feed:** the last 500 transitions, with search, kind and severity chips and pages.
 - **Fleet health** (3-minute trend), **status distribution** donut, **sensor breach radar**, **location health** heatmap (floor × zone) and **fleet averages** gauges.
-- **Device table:** all 10,000 devices, virtualized. Sortable columns; the live order refreshes every 3 s and pauses while hovered or focused. Keyboard: arrows / Page / Home / End move, Enter opens. Breaching values are coloured; stale and offline rows are dimmed.
-- **Device drawer:** 10 sensor tiles, a 5-minute time series with the live warning/critical bands, the event timeline from MongoDB. Focus is trapped; Esc closes and returns focus.
+- **Device table:** all 10,000 devices, paginated (25/50/100/250) with virtual scrolling inside each page. Sortable columns; the live order refreshes every 3 s and pauses while hovered or focused. Keyboard: arrows / Page / Home / End move, Enter opens. Breaching values are coloured; stale and offline rows are dimmed.
+- **Device drawer:** 10 sensor tiles, a 5-minute time series with the live warning/critical bands, the event timeline from MongoDB (kind filters, "Load older" keyset paging). Focus is trapped; Esc closes and returns focus.
 - **Alarm thresholds:** edit warning/critical bounds per sensor (validated inline). The server re-evaluates all 100,000 readings, alerts follow on the next tick, every tab updates live, and the rules persist in MongoDB.
 - **`/model`:** live entity diagram (SensorType, Device, Reading, Sample, Alert, Event, Summary, Delta), where each lives, and real JSON samples from the running system.
 
@@ -57,7 +58,8 @@ Browser ── snapshot (REST, once + after reconnect) ──► Next.js route h
 | `GET /api/telemetry/latest` | every device as a packed row (the client snapshot) |
 | `GET /api/summary` | counts by status, sensor and zone, averages, top alerts |
 | `GET /api/fleet` | columnar device metadata for the snapshot |
-| `GET /api/stream` | SSE: `hello`, `summary`, `delta`, `alert` (raised / cleared / acked), `thresholds`, heartbeat |
+| `GET /api/stream` | SSE: `hello` (server clock, tick, stale/offline windows), `summary` (+ live viewer count), `delta`, `alert` (raised / cleared / acked), `thresholds`, heartbeat |
+| `GET /api/events` | persisted events newest first: `deviceId, kind, severity, limit, cursor` (keyset pagination) |
 | `POST /api/alerts/{id}/ack` | acknowledge an open alert; broadcast to every tab |
 | `GET` / `PUT` / `DELETE /api/thresholds` | read, replace (validated) or reset the alarm rules; broadcast as an SSE `thresholds` frame |
 | `GET /api/health` | uptime, tick, stream connections, MongoDB and flush status |
