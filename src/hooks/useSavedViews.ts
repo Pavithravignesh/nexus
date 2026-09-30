@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { z } from "zod";
-import { FLOORS, ZONES } from "@/shared/fleet";
+import { DEVICE_TYPES, FLOORS, ZONES } from "@/shared/fleet";
 
 // Saved filter views: a per-operator convenience, so they live in this browser's
 // localStorage (not the database). Every read tolerates missing, blocked or corrupt storage.
@@ -17,6 +17,9 @@ export const viewFiltersSchema = z.object({
   zone: z.enum(ZONES).nullable(),
   floor: z.literal(FLOORS).nullable(),
   sensor: z.number().int().min(0).max(9).nullable(),
+  // Added later: defaults keep views saved before these filters existed loadable.
+  type: z.enum(DEVICE_TYPES).nullable().default(null),
+  stale: z.boolean().default(false),
 });
 export type ViewFilters = z.infer<typeof viewFiltersSchema>;
 
@@ -88,6 +91,8 @@ export function describeFilters(f: ViewFilters, sensorLabels: readonly string[],
     f.status !== null ? statusLabels[f.status] : null,
     f.zone || f.floor ? `${f.zone ?? "*"}${f.floor ?? "*"}` : null,
     f.sensor !== null ? sensorLabels[f.sensor] : null,
+    f.type,
+    f.stale ? "stale" : null,
     f.q ? `"${f.q}"` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "all devices";

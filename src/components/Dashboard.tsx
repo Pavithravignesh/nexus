@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from "react";
 import { TelemetryProvider, useLive } from "@/hooks/useTelemetry";
-import { FLOORS, ZONES, type Floor, type Zone } from "@/shared/fleet";
-import { SENSORS, SENSOR_COUNT } from "@/shared/sensors";
-import { OFFLINE, type StatusCode } from "@/shared/status";
+import { EMPTY_FILTERS, FILTER_OPTIONS, filtersKey, isFiltered, matchesDevice, type DeviceFilters } from "@/lib/device-filters";
+import type { DeviceType, Floor, Zone } from "@/shared/fleet";
+import { SENSORS } from "@/shared/sensors";
+import type { StatusCode } from "@/shared/status";
 import { AlertsPanel } from "./alerts/AlertsPanel";
 import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
 import { BreachRadar, FleetGauges, ZoneHeatmap } from "./charts/LocationCharts";
@@ -16,31 +17,16 @@ import { STATUS_UI } from "./status";
 import { ControlRoom3D } from "./three/ControlRoom3D";
 import { DisconnectedBanner, TopBar } from "./shell/TopBar";
 
-type Filters = { q: string; status: StatusCode | null; zone: Zone | null; floor: Floor | null; sensor: number | null };
-const EMPTY: Filters = { q: "", status: null, zone: null, floor: null, sensor: null };
+const EMPTY = EMPTY_FILTERS;
 
 function Board(): React.JSX.Element {
   const { store, error, retry } = useLive();
-  const [f, setF] = useState<Filters>(EMPTY);
+  const [f, setF] = useState<DeviceFilters>(EMPTY);
   const [selected, setSelected] = useState<number | null>(null);
-  const q = f.q.trim().toLowerCase();
-
-  const matches = useCallback(
-    (i: number): boolean => {
-      const d = store.devices[i];
-      if (!d) return false;
-      if (f.status !== null && store.status[i] !== f.status) return false;
-      if (f.zone && d.zone !== f.zone) return false;
-      if (f.floor && d.floor !== f.floor) return false;
-      if (f.sensor !== null && (store.status[i] === OFFLINE || !store.readingStatus[i * SENSOR_COUNT + f.sensor])) return false;
-      if (q && !d.deviceId.toLowerCase().includes(q) && !`${d.zone}${d.floor}`.toLowerCase().includes(q) && !d.type.toLowerCase().includes(q)) return false;
-      return true;
-    },
-    [store, f.status, f.zone, f.floor, f.sensor, q],
-  );
-  const filterKey = `${f.status}|${f.zone}|${f.floor}|${f.sensor}|${q}`;
+  const matches = useCallback((i: number): boolean => matchesDevice(store, f, i, Date.now(), store.staleAfterMs), [store, f]);
+  const filterKey = filtersKey(f);
   const close = useCallback(() => setSelected(null), []);
-  const active = f.status !== null || f.zone || f.floor || f.sensor !== null || q;
+  const active = isFiltered(f);
 
   return (
     <div className="min-h-screen">
@@ -69,7 +55,7 @@ function Board(): React.JSX.Element {
               </select>
               <select aria-label="Floor" value={f.floor ?? ""} onChange={(e) => setF((x) => ({ ...x, floor: e.target.value ? (Number(e.target.value) as Floor) : null }))} className="border border-border bg-surface px-2 py-1 text-text">
                 <option value="">All floors</option>
-                {FLOORS.map((fl) => (
+                {FILTER_OPTIONS.floors.map((fl) => (
                   <option key={fl} value={fl}>
                     Floor {fl}
                   </option>
@@ -77,7 +63,7 @@ function Board(): React.JSX.Element {
               </select>
               <select aria-label="Zone" value={f.zone ?? ""} onChange={(e) => setF((x) => ({ ...x, zone: (e.target.value || null) as Zone | null }))} className="border border-border bg-surface px-2 py-1 text-text">
                 <option value="">All zones</option>
-                {ZONES.map((z) => (
+                {FILTER_OPTIONS.zones.map((z) => (
                   <option key={z} value={z}>
                     Zone {z}
                   </option>
@@ -91,6 +77,18 @@ function Board(): React.JSX.Element {
                   </option>
                 ))}
               </select>
+              <select aria-label="Device type" value={f.type ?? ""} onChange={(e) => setF((x) => ({ ...x, type: (e.target.value || null) as DeviceType | null }))} className="border border-border bg-surface px-2 py-1 text-text">
+                <option value="">All device types</option>
+                {FILTER_OPTIONS.types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <label className="flex cursor-pointer items-center gap-1.5 border border-border bg-surface px-2 py-1 text-text">
+                <input type="checkbox" checked={f.stale} onChange={(e) => setF((x) => ({ ...x, stale: e.target.checked }))} className="accent-[var(--accent)]" />
+                Stale only
+              </label>
               {active && (
                 <button type="button" onClick={() => setF(EMPTY)} className="border border-accent/60 px-2 py-1 text-accent hover:bg-accent/15">
                   Clear all ✕
