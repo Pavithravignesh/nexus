@@ -32,21 +32,28 @@ export function TopBar({ query, onQuery }: { query: string; onQuery: (q: string)
 
   return (
     <header className="flex flex-wrap items-center gap-4 border-b border-border px-5 py-3">
+
       <div className="flex items-center gap-2.5 text-lg font-bold tracking-[.12em]">
         <span aria-hidden className="inline-block h-6 w-6 rotate-45 border-2 border-accent bg-accent/20" />
         NEXUS <span className="font-medium text-muted">OPS</span>
       </div>
+
       <label className="flex min-w-60 max-w-md flex-1 items-center gap-2 border border-border bg-surface px-3">
         <span aria-hidden className="text-muted">⌕</span>
         <input ref={input} value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Search device id, zone (DEV-0421, C2)…" aria-label="Search devices" className="num w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted" />
         <kbd className="num border border-border px-1.5 text-[11px] text-muted">/</kbd>
       </label>
+
       <div className="flex-1" />
       <div role="status" aria-live="polite" className="num flex items-center gap-2 border px-3 py-1.5 text-xs" style={{ color: pill.color, borderColor: `color-mix(in srgb, ${pill.color} 45%, transparent)`, background: `color-mix(in srgb, ${pill.color} 10%, transparent)` }}>
+
         <span aria-hidden className={`h-2 w-2 rounded-full ${store.connection === "live" ? "animate-pulse" : ""}`} style={{ background: pill.color }} />
         {pill.text}
+
         {store.lastFrameAt > 0 && <span className="text-muted">· updated {ago(store.lastFrameAt, now)} ago</span>}
+        
       </div>
+
       <ThemeToggle />
       <time suppressHydrationWarning className="num text-xs text-muted">
         {new Date(now).toLocaleTimeString("en-GB")}

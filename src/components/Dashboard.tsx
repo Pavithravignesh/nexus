@@ -3,17 +3,19 @@
 import { useCallback, useState } from "react";
 import { TelemetryProvider, useLive } from "@/hooks/useTelemetry";
 import { FLOORS, ZONES, type Floor, type Zone } from "@/shared/fleet";
-import type { StatusCode } from "@/shared/status";
+import { SENSORS, SENSOR_COUNT } from "@/shared/sensors";
+import { OFFLINE, type StatusCode } from "@/shared/status";
 import { AlertsPanel } from "./alerts/AlertsPanel";
 import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
+import { BreachRadar, FleetGauges, ZoneHeatmap } from "./charts/LocationCharts";
 import { DeviceTable } from "./devices/DeviceTable";
 import { DeviceDrawer } from "./drawer/DeviceDrawer";
 import { KpiStrip } from "./kpi/KpiStrip";
 import { STATUS_UI } from "./status";
 import { DisconnectedBanner, TopBar } from "./shell/TopBar";
 
-type Filters = { q: string; status: StatusCode | null; zone: Zone | null; floor: Floor | null };
-const EMPTY: Filters = { q: "", status: null, zone: null, floor: null };
+type Filters = { q: string; status: StatusCode | null; zone: Zone | null; floor: Floor | null; sensor: number | null };
+const EMPTY: Filters = { q: "", status: null, zone: null, floor: null, sensor: null };
 
 function Board(): React.JSX.Element {
   const { store, error, retry } = useLive();
@@ -28,14 +30,15 @@ function Board(): React.JSX.Element {
       if (f.status !== null && store.status[i] !== f.status) return false;
       if (f.zone && d.zone !== f.zone) return false;
       if (f.floor && d.floor !== f.floor) return false;
+      if (f.sensor !== null && (store.status[i] === OFFLINE || !store.readingStatus[i * SENSOR_COUNT + f.sensor])) return false;
       if (q && !d.deviceId.toLowerCase().includes(q) && !`${d.zone}${d.floor}`.toLowerCase().includes(q) && !d.type.toLowerCase().includes(q)) return false;
       return true;
     },
-    [store, f.status, f.zone, f.floor, q],
+    [store, f.status, f.zone, f.floor, f.sensor, q],
   );
-  const filterKey = `${f.status}|${f.zone}|${f.floor}|${q}`;
+  const filterKey = `${f.status}|${f.zone}|${f.floor}|${f.sensor}|${q}`;
   const close = useCallback(() => setSelected(null), []);
-  const active = f.status !== null || f.zone || f.floor || q;
+  const active = f.status !== null || f.zone || f.floor || f.sensor !== null || q;
 
   return (
     <div className="min-h-screen">
@@ -78,6 +81,14 @@ function Board(): React.JSX.Element {
                   </option>
                 ))}
               </select>
+              <select aria-label="Breaching sensor" value={f.sensor ?? ""} onChange={(e) => setF((x) => ({ ...x, sensor: e.target.value === "" ? null : Number(e.target.value) }))} className="border border-border bg-surface px-2 py-1 text-text">
+                <option value="">Any sensor</option>
+                {SENSORS.map((s, j) => (
+                  <option key={s.key} value={j}>
+                    Breaching {s.label}
+                  </option>
+                ))}
+              </select>
               {active && (
                 <button type="button" onClick={() => setF(EMPTY)} className="border border-accent/60 px-2 py-1 text-accent hover:bg-accent/15">
                   Clear all ✕
@@ -91,11 +102,23 @@ function Board(): React.JSX.Element {
             <KpiStrip status={f.status} onStatus={(s) => setF((x) => ({ ...x, status: s }))} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="min-w-0 lg:col-span-8">
+              <div className="min-w-0 lg:col-span-5">
                 <FleetHealthChart />
               </div>
-              <div className="min-w-0 lg:col-span-4">
+              <div className="min-w-0 lg:col-span-3">
                 <StatusDonut status={f.status} onStatus={(st) => setF((x) => ({ ...x, status: st }))} />
+              </div>
+              <div className="min-w-0 lg:col-span-4">
+                <BreachRadar sensor={f.sensor} onSensor={(sn) => setF((x) => ({ ...x, sensor: sn }))} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="min-w-0 lg:col-span-6">
+                <ZoneHeatmap zone={f.zone} floor={f.floor} onZone={(z, fl) => setF((x) => ({ ...x, zone: z, floor: fl }))} />
+              </div>
+              <div className="min-w-0 lg:col-span-6">
+                <FleetGauges />
               </div>
             </div>
 
