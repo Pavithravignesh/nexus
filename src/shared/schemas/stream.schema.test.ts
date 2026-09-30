@@ -25,19 +25,33 @@ describe("deltaFrameSchema", () => {
 });
 
 describe("alertFrameSchema", () => {
-  const alert = { id: "ALR-1", deviceIdx: 4210, deviceId: "DEV-04211", sensor: "co2", severity: "CRITICAL", value: 1650, raisedAt: ts };
+  const alert = { id: "ALR-1", deviceIdx: 4210, deviceId: "DEV-04211", sensor: "co2", severity: "CRITICAL", value: 1650, raisedAt: ts, ackedAt: null };
 
   it("accepts raised and cleared alerts", () => {
-    expect(alertFrameSchema.safeParse({ seq: 1, raised: [alert], cleared: ["ALR-0"] }).success).toBe(true);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [alert], cleared: ["ALR-0"], acked: [] }).success).toBe(true);
   });
 
   it("accepts offline alerts without a sensor", () => {
-    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, sensor: null, severity: "OFFLINE", value: null }], cleared: [] }).success).toBe(true);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, sensor: null, severity: "OFFLINE", value: null }], cleared: [], acked: [] }).success).toBe(true);
   });
 
   it("rejects NORMAL as an alert severity and unknown sensors", () => {
-    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, severity: "NORMAL" }], cleared: [] }).success).toBe(false);
-    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, sensor: "radon" }], cleared: [] }).success).toBe(false);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, severity: "NORMAL" }], cleared: [], acked: [] }).success).toBe(false);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, sensor: "radon" }], cleared: [], acked: [] }).success).toBe(false);
+  });
+
+  it("accepts ack-only frames and acknowledged alerts", () => {
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [], cleared: [], acked: [{ id: "ALR-1", ackedAt: ts }] }).success).toBe(true);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [{ ...alert, ackedAt: ts }], cleared: [], acked: [] }).success).toBe(true);
+  });
+
+  it("rejects frames without acked, bad ack timestamps, empty ids and alerts missing ackedAt", () => {
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [], cleared: [] }).success).toBe(false);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [], cleared: [], acked: [{ id: "ALR-1", ackedAt: "now" }] }).success).toBe(false);
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [], cleared: [], acked: [{ id: "", ackedAt: ts }] }).success).toBe(false);
+    const legacy: Record<string, unknown> = { ...alert };
+    delete legacy.ackedAt;
+    expect(alertFrameSchema.safeParse({ seq: 1, raised: [legacy], cleared: [], acked: [] }).success).toBe(false);
   });
 });
 

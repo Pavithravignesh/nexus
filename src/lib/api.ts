@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { alertSchema } from "@/shared/schemas/stream.schema";
+import type { Alert } from "@/shared/types";
 
 export class ApiClientError extends Error {
   constructor(
@@ -24,4 +26,9 @@ export async function fetchJson<S extends z.ZodType>(url: string, schema: S, ini
   const data = schema.safeParse(body.data.data);
   if (!data.success) throw new ApiClientError(`Invalid data from ${url}`, "BAD_RESPONSE");
   return data.data;
+}
+
+/** POST an alert acknowledgement; resolves with the server's copy of the acked alert. */
+export function postAlertAck(id: string): Promise<Alert> {
+  return fetchJson(`/api/alerts/${encodeURIComponent(id)}/ack`, alertSchema, { method: "POST" });
 }
