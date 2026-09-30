@@ -3,6 +3,7 @@
 import { scaleLinear } from "d3-scale";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useLive, useNow, useRow } from "@/hooks/useTelemetry";
 import { fetchJson } from "@/lib/api";
 import { historySchema } from "@/shared/schemas/api.schema";
@@ -157,16 +158,7 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
     return w;
   });
   const [events, setEvents] = useState<z.infer<typeof eventsSchema>["events"] | null>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const dialogRef = useFocusTrap<HTMLElement>(onClose);
 
   useEffect(() => {
     if (!d) return;
@@ -184,11 +176,11 @@ export function DeviceDrawer({ idx, onClose }: { idx: number; onClose: () => voi
   return (
     <>
       <div className="fixed inset-0 z-[55] bg-[var(--scrim)]" onClick={onClose} aria-hidden />
-      <aside role="dialog" aria-modal="true" aria-label={`Device ${d.deviceId}`} style={{ background: "var(--surface)" }} className="slidein fixed top-0 right-0 bottom-0 z-[60] flex w-full max-w-[560px] flex-col gap-3 overflow-y-auto border-l border-border p-4 shadow-2xl">
+      <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Device ${d.deviceId}`} style={{ background: "var(--surface)" }} className="slidein fixed top-0 right-0 bottom-0 z-[60] flex w-full max-w-[560px] flex-col gap-3 overflow-y-auto border-l border-border p-4 shadow-2xl">
         <div className="border p-3" style={{ borderColor: `color-mix(in srgb, ${ui.color} 50%, transparent)`, background: `color-mix(in srgb, ${ui.color} 10%, transparent)` }}>
           <div className="flex items-start justify-between">
             <StatusBadge code={st} />
-            <button ref={closeRef} type="button" onClick={onClose} className="num border border-border px-2 py-0.5 text-xs text-muted hover:text-text">
+            <button type="button" onClick={onClose} className="num border border-border px-2 py-0.5 text-xs text-muted hover:text-text">
               Esc ✕
             </button>
           </div>

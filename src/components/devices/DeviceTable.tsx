@@ -33,7 +33,7 @@ function sortValue(store: TelemetryStore, i: number, key: SortKey): number {
   return store.values[i * SENSOR_COUNT + sensorIndex(key)] ?? 0;
 }
 
-const Row = memo(function Row({ idx, selected, now, onOpen }: { idx: number; selected: boolean; now: number; onOpen: (idx: number) => void }): React.JSX.Element {
+const Row = memo(function Row({ idx, selected, active, now, onOpen }: { idx: number; selected: boolean; active: boolean; now: number; onOpen: (idx: number) => void }): React.JSX.Element {
   const store = useRow(idx);
   const d = store.devices[idx];
   const st = (store.status[idx] ?? 0) as StatusCode;
@@ -46,9 +46,13 @@ const Row = memo(function Row({ idx, selected, now, onOpen }: { idx: number; sel
   return (
     <button
       type="button"
+      tabIndex={-1}
+      id={`device-row-${idx}`}
+      role="row"
+      aria-selected={active}
       onClick={() => onOpen(idx)}
       className={`${GRID} num h-full w-full border-b border-[var(--hairline)] text-left text-xs hover:bg-[var(--wash)] ${selected ? "bg-accent/15" : ""}`}
-      style={{ opacity: st === OFFLINE ? 0.55 : stale ? 0.65 : 1, borderLeft: st === CRITICAL ? `3px solid ${STATUS_UI[2].color}` : st === OFFLINE ? "3px dashed var(--st-offline)" : "3px solid transparent" }}
+      style={{ outline: active ? "2px solid var(--accent)" : undefined, outlineOffset: -2, opacity: st === OFFLINE ? 0.55 : stale ? 0.65 : 1, borderLeft: st === CRITICAL ? `3px solid ${STATUS_UI[2].color}` : st === OFFLINE ? "3px dashed var(--st-offline)" : "3px solid transparent" }}
     >
       <StatusBadge code={st} />
       <span>{d.deviceId}</span>
@@ -80,8 +84,11 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "severity", dir: -1 });
   const [tick, setTick] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const [paused, setPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [cursor, setCursor] = useState<number | null>(null); // device idx, stable across re-sorts
   const scrollRef = useRef<HTMLDivElement>(null);
+  const paused = hovered || focused;
 
   // Live order refreshes every RESORT_MS, never per delta, and pauses while the pointer is
   // over the table so rows do not jump under the cursor.
@@ -108,13 +115,35 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
   }, [store, store.devices, tick, sort, filterKey]);
 
   const virtual = useVirtualizer({ count: order.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_H, overscan: 12 });
+  const cursorPos = cursor === null ? -1 : order.indexOf(cursor);
+
+  // Keyboard: arrows / Page / Home / End move the highlighted row, Enter opens it.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (!order.length) return;
+    const page = Math.max(1, Math.floor(520 / ROW_H) - 1);
+    const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1, PageDown: page, PageUp: -page };
+    let next: number | null = null;
+    if (e.key in moves) next = Math.min(order.length - 1, Math.max(0, (cursorPos < 0 ? -1 : cursorPos) + (moves[e.key] ?? 0)));
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = order.length - 1;
+    else if (e.key === "Enter" && cursor !== null) {
+      e.preventDefault();
+      onOpen(cursor);
+      return;
+    }
+    if (next === null) return;
+    e.preventDefault();
+    setCursor(order[next] ?? null);
+    virtual.scrollToIndex(next, { align: "auto" });
+  };
 
   return (
-    <section aria-label="Devices" className="panel flex min-h-0 flex-col" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <section aria-label="Devices" className="panel flex min-h-0 flex-col" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h2 className="ptitle">Devices</h2>
         <span className="num text-xs text-muted">
           {paused && <span className="mr-2 border border-warning/50 px-1.5 text-warning">⏸ live order paused</span>}
+          <span className="mr-2 hidden lg:inline">↑↓ move · Enter open ·</span>
           {order.length.toLocaleString("en-US")} of {store.devices.length.toLocaleString("en-US")} · virtualized
         </span>
       </div>
@@ -130,7 +159,18 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
           ),
         )}
       </div>
-      <div ref={scrollRef} className="relative h-[520px] overflow-y-auto">
+      <div
+        ref={scrollRef}
+        role="grid"
+        aria-label="Device list: arrow keys to move, Enter to open"
+        aria-rowcount={order.length}
+        aria-activedescendant={cursorPos >= 0 && cursor !== null ? `device-row-${cursor}` : undefined}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="relative h-[520px] overflow-y-auto"
+      >
         {!store.loaded ? (
           <div className="flex flex-col gap-1 p-2">{Array.from({ length: 12 }, (_, i) => <div key={i} className="skeleton h-7" />)}</div>
         ) : order.length === 0 ? (
@@ -146,7 +186,7 @@ export function DeviceTable({ matches, filterKey, selected, onOpen, onClear }: {
               const idx = order[v.index] ?? 0;
               return (
                 <div key={idx} style={{ position: "absolute", top: 0, left: 0, right: 0, height: ROW_H, transform: `translateY(${v.start}px)` }}>
-                  <Row idx={idx} selected={selected === idx} now={now} onOpen={onOpen} />
+                  <Row idx={idx} selected={selected === idx} active={cursor === idx} now={now} onOpen={(i) => { setCursor(i); onOpen(i); }} />
                 </div>
               );
             })}
