@@ -112,6 +112,23 @@ describe("AnomalyDetector", () => {
     for (let v = 1031; v > 1013.5; v -= (v - 1013) * 0.25) expect(report(v)).toBe(0);
   });
 
+  it("does not learn a fault present at start-up as normal (a fresh server instance)", () => {
+    // Regression from production: a new Vercel instance boots mid-fault (pressure at 1,048 hPa,
+    // decaying to 1,013); the decay was learned as "normal ~1,040" and then forecast to the low bound.
+    const PRESSURE = sensorIndex("pressure");
+    const d = new AnomalyDetector(SENSOR_COUNT);
+    const state = fleet([23, 46, 650, 20.9, 28, 12, 24, 1013, 52, 8]);
+    const noise = noisy(0, 0.7, 120);
+    for (let k = 0; k < 120; k++) {
+      const v = 1013 + 35 * 0.75 ** k + (noise[k] ?? 0);
+      const now = T0 + k * 5000;
+      state.values[PRESSURE] = v;
+      state.readingStatus[PRESSURE] = readingStatus(PRESSURE, v);
+      d.observe(PRESSURE, v, now);
+      expect(d.scan(state, now, 10).flagged).toBe(0);
+    }
+  });
+
   it("does not forecast a breach from noise far below a distant bound", () => {
     // Occupancy wobbling around 3-5 people must not forecast reaching the 40-person bound.
     const OCC = sensorIndex("occupancy");

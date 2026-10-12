@@ -8,6 +8,8 @@ export type DetectorOptions = {
   meanAlpha: number;
   /** EWMA weight of a new reading in the long-term normal that readings are scored against. */
   normalAlpha: number;
+  /** The normal's weight during warm-up: fast, so a fault present at start-up washes out before scoring begins. */
+  warmupNormalAlpha: number;
   /** A reading moving back toward its normal faster than this (sensor jitter per second) is recovering. */
   recoveryRate: number;
   /** EWMA weight of a new squared residual in the learned variance. */
@@ -27,10 +29,11 @@ export type DetectorOptions = {
 export const DEFAULT_DETECTOR: DetectorOptions = {
   meanAlpha: 0.1,
   normalAlpha: 0.01,
+  warmupNormalAlpha: 0.3,
   recoveryRate: 0.2,
   varAlpha: 0.05,
   trendAlpha: 0.3,
-  warmup: 8,
+  warmup: 20,
   zFlag: 4,
   zWatch: 3,
   horizonSec: 300,
@@ -79,7 +82,7 @@ export class AnomalyDetector {
     const c = this.count[p] ?? 0;
     if (c === 0) {
       this.mean[p] = value;
-      this.normal[p] = value;
+      this.normal[p] = readingStatus(p % SENSOR_COUNT, value) === NORMAL ? value : NaN;
       this.variance[p] = 0;
       this.trend[p] = 0;
       this.last[p] = value;
@@ -101,8 +104,12 @@ export class AnomalyDetector {
     }
     this.mean[p] = mean + Math.max(opts.meanAlpha, 1 / (c + 1)) * resid;
     // The long-term normal moves slowly, so a fault lasting minutes cannot redefine "normal".
-    const normal = this.normal[p] ?? value;
-    this.normal[p] = normal + Math.max(opts.normalAlpha, 1 / (c + 1)) * (value - normal);
+    // A breaching value never teaches it, and during warm-up it tracks fast so a fault already
+    // present at start-up (a fresh server instance) has washed out before scoring begins.
+    if (readingStatus(p % SENSOR_COUNT, value) === NORMAL) {
+      const normal = this.normal[p] ?? NaN;
+      this.normal[p] = Number.isNaN(normal) ? value : normal + (c < opts.warmup ? opts.warmupNormalAlpha : opts.normalAlpha) * (value - normal);
+    }
     this.last[p] = value;
     this.lastTs[p] = nowMs;
     if (c < 0xffff) this.count[p] = c + 1;
@@ -143,7 +150,8 @@ export class AnomalyDetector {
     // The status is taken from the rounded value, as the wire and the browser see it.
     const value = this.last[p] ?? 0;
     if (readingStatus(j, roundFor(j, value)) !== NORMAL) return null;
-    const normal = this.normal[p] ?? value;
+    const normal = this.normal[p] ?? NaN;
+    if (Number.isNaN(normal)) return null;
     const z = (value - normal) / Math.max(Math.sqrt(this.variance[p] ?? 0), SD_FLOOR[j] ?? 0);
     if (Math.abs(z) < opts.zWatch) return null;
     // Only deviations on the side of an alarm bound matter, and only while they are not on
