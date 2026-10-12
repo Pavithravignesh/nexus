@@ -91,6 +91,34 @@ describe("AnomalyDetector", () => {
     expect(d.scan(state, T0 + 150_000, 5).flagged).toBe(0);
   });
 
+  it("treats a repaired fault settling back to normal as recovering, not heading for the other bound", () => {
+    // Regression from production: pressure (bounds on both sides) faulted up to ~1,038 hPa, was
+    // repaired, and fell back toward 1,013; the fall was forecast as "warning in ~25s" (low bound 985).
+    const PRESSURE = sensorIndex("pressure");
+    const d = new AnomalyDetector(SENSOR_COUNT);
+    const state = fleet([23, 46, 650, 20.9, 28, 12, 24, 1013, 52, 8]);
+    let now = T0;
+    const report = (v: number): number => {
+      now += 5000;
+      state.values[PRESSURE] = v;
+      state.readingStatus[PRESSURE] = readingStatus(PRESSURE, v);
+      d.observe(PRESSURE, v, now);
+      return d.scan(state, now, 10).flagged;
+    };
+    for (const v of noisy(1013, 0.7, 150)) report(v);
+    const rampFlags = Array.from({ length: 25 }, (_, k) => report(1013 + k)).filter(Boolean).length;
+    expect(rampFlags).toBeGreaterThan(0); // the fault itself is caught on the way up
+    // Repaired: each report closes a quarter of the gap to 1,013, as the simulator does.
+    for (let v = 1031; v > 1013.5; v -= (v - 1013) * 0.25) expect(report(v)).toBe(0);
+  });
+
+  it("does not forecast a breach from noise far below a distant bound", () => {
+    // Occupancy wobbling around 3-5 people must not forecast reaching the 40-person bound.
+    const OCC = sensorIndex("occupancy");
+    const series = noisy(3, 0.8, 120).map((v) => Math.max(0, Math.round(v)));
+    expect(feed([...series, 5, 5], OCC).flagged).toBe(0);
+  });
+
   it("ignores deviations away from the alarm bound", () => {
     // Temperature only has a high bound, so a drop is not on course to alarm.
     expect(feed([...noisy(23, 0.3, 40), 17]).flagged).toBe(0);

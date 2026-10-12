@@ -89,7 +89,7 @@ export type Insight = {
   deviceId: string;
   sensor: SensorKey;
   value: number;
-  /** The learned normal level (EWMA mean) the value is compared with. */
+  /** The learned long-term normal (slow EWMA) the value is compared with. */
   expected: number;
   /** Signed deviation from `expected` in learned standard deviations. */
   z: number;

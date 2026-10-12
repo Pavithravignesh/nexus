@@ -4,8 +4,12 @@ import { boundsFor } from "@/shared/thresholds";
 import type { FleetState, Insight } from "@/shared/types";
 
 export type DetectorOptions = {
-  /** EWMA weight of a new reading in the learned mean. */
+  /** EWMA weight of a new reading in the short-term mean (the centre the noise is measured around). */
   meanAlpha: number;
+  /** EWMA weight of a new reading in the long-term normal that readings are scored against. */
+  normalAlpha: number;
+  /** A reading moving back toward its normal faster than this (sensor jitter per second) is recovering. */
+  recoveryRate: number;
   /** EWMA weight of a new squared residual in the learned variance. */
   varAlpha: number;
   /** EWMA weight of a new rate-of-change sample in the trend. */
@@ -20,15 +24,26 @@ export type DetectorOptions = {
   horizonSec: number;
 };
 
-export const DEFAULT_DETECTOR: DetectorOptions = { meanAlpha: 0.1, varAlpha: 0.05, trendAlpha: 0.3, warmup: 8, zFlag: 4, zWatch: 2.5, horizonSec: 300 };
+export const DEFAULT_DETECTOR: DetectorOptions = {
+  meanAlpha: 0.1,
+  normalAlpha: 0.01,
+  recoveryRate: 0.2,
+  varAlpha: 0.05,
+  trendAlpha: 0.3,
+  warmup: 8,
+  zFlag: 4,
+  zWatch: 3,
+  horizonSec: 300,
+};
 
 /** Per-sensor noise floor for the standard deviation, so a very quiet sensor cannot flag on noise. */
 const SD_FLOOR = SENSORS.map((s) => s.jitter);
 
 /**
- * Online anomaly detection over the whole fleet. Every reading learns its own normal: an EWMA
- * mean and variance, plus an EWMA rate of change. State is flat typed arrays indexed like
- * FleetState.values, so 100,000 readings cost a few megabytes and one pass per tick.
+ * Online anomaly detection over the whole fleet. Every reading learns its own normal: a slow
+ * EWMA (the long-term normal it is scored against), a fast EWMA and variance (its noise), and
+ * an EWMA rate of change. State is flat typed arrays indexed like FleetState.values, so
+ * 100,000 readings cost a few megabytes and one pass per tick.
  *
  * It looks for what fixed thresholds miss: a reading that is still inside its alarm bounds
  * but is either far from its own normal or trending to breach its warning bound soon.
@@ -36,6 +51,7 @@ const SD_FLOOR = SENSORS.map((s) => s.jitter);
  */
 export class AnomalyDetector {
   private readonly mean: Float32Array;
+  private readonly normal: Float32Array;
   private readonly variance: Float32Array;
   private readonly trend: Float32Array;
   private readonly last: Float32Array;
@@ -48,6 +64,7 @@ export class AnomalyDetector {
     private readonly opts: DetectorOptions = DEFAULT_DETECTOR,
   ) {
     this.mean = new Float32Array(size);
+    this.normal = new Float32Array(size);
     this.variance = new Float32Array(size);
     this.trend = new Float32Array(size);
     this.last = new Float32Array(size);
@@ -62,6 +79,7 @@ export class AnomalyDetector {
     const c = this.count[p] ?? 0;
     if (c === 0) {
       this.mean[p] = value;
+      this.normal[p] = value;
       this.variance[p] = 0;
       this.trend[p] = 0;
       this.last[p] = value;
@@ -82,6 +100,9 @@ export class AnomalyDetector {
       this.variance[p] = (this.variance[p] ?? 0) + Math.max(opts.varAlpha, 1 / c) * (resid * resid - (this.variance[p] ?? 0));
     }
     this.mean[p] = mean + Math.max(opts.meanAlpha, 1 / (c + 1)) * resid;
+    // The long-term normal moves slowly, so a fault lasting minutes cannot redefine "normal".
+    const normal = this.normal[p] ?? value;
+    this.normal[p] = normal + Math.max(opts.normalAlpha, 1 / (c + 1)) * (value - normal);
     this.last[p] = value;
     this.lastTs[p] = nowMs;
     if (c < 0xffff) this.count[p] = c + 1;
@@ -122,16 +143,18 @@ export class AnomalyDetector {
     // The status is taken from the rounded value, as the wire and the browser see it.
     const value = this.last[p] ?? 0;
     if (readingStatus(j, roundFor(j, value)) !== NORMAL) return null;
-    const mean = this.mean[p] ?? value;
-    const z = (value - mean) / Math.max(Math.sqrt(this.variance[p] ?? 0), SD_FLOOR[j] ?? 0);
+    const normal = this.normal[p] ?? value;
+    const z = (value - normal) / Math.max(Math.sqrt(this.variance[p] ?? 0), SD_FLOOR[j] ?? 0);
     if (Math.abs(z) < opts.zWatch) return null;
-    // Only deviations heading toward an alarm bound matter; a reading falling back to normal
-    // after a spike is far from its mean too, but in the safe direction.
+    // Only deviations on the side of an alarm bound matter, and only while they are not on
+    // their way back: a reading settling to normal after a fault is far from normal too, and
+    // on a two-sided sensor (pressure) its fall must not be read as heading for the low bound.
     const up = z > 0;
     const warn = up ? b.hi?.[0] : b.lo?.[0];
     if (warn === undefined) return null;
     const trend = this.trend[p] ?? 0;
     const toward = up ? trend : -trend;
+    if (toward < -opts.recoveryRate * (SD_FLOOR[j] ?? 0)) return null;
     const etaSec = toward > 0 ? Math.max(0, up ? warn - value : value - warn) / toward : null;
     const soon = etaSec !== null && etaSec <= opts.horizonSec;
     if (Math.abs(z) < opts.zFlag && !soon) return null;
@@ -141,7 +164,7 @@ export class AnomalyDetector {
       deviceId: state.devices[i]?.deviceId ?? "",
       sensor: key,
       value: roundFor(j, value),
-      expected: roundFor(j, mean),
+      expected: roundFor(j, normal),
       z: Math.round(z * 10) / 10,
       trendPerMin: Math.round(trend * 60 * 10 ** decimals) / 10 ** decimals,
       etaSec: soon ? Math.round(etaSec) : null,
