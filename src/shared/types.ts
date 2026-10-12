@@ -80,5 +80,29 @@ export type TelemetryEvent = {
   ts: string;
 };
 
+/**
+ * A reading the anomaly detector flags while it is still inside its alarm bounds: either far
+ * from that sensor's learned normal (`z`) or trending to breach its warning bound soon (`etaSec`).
+ */
+export type Insight = {
+  deviceIdx: number;
+  deviceId: string;
+  sensor: SensorKey;
+  value: number;
+  /** The learned normal level (EWMA mean) the value is compared with. */
+  expected: number;
+  /** Signed deviation from `expected` in learned standard deviations. */
+  z: number;
+  /** Smoothed rate of change, in sensor units per minute. */
+  trendPerMin: number;
+  /** Seconds until the warning bound is crossed at the current trend; null unless that is within the forecast window. */
+  etaSec: number | null;
+  /** ISO time the detector first flagged this reading. */
+  since: string;
+};
+
+/** The detector's ranked watch list for one tick; `flagged` counts all flags, `items` is the top. */
+export type InsightFrame = { seq: number; flagged: number; items: Insight[] };
+
 /** Sent once per connection: the server clock and the timing rules the browser must use. */
 export type HelloFrame = { serverTime: string; seq: number; tickMs: number; staleAfterMs: number; offlineAfterMs: number };

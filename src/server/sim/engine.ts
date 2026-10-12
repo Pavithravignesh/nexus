@@ -1,7 +1,8 @@
 import { SENSORS, SENSOR_COUNT, SENSOR_KEYS, roundFor } from "@/shared/sensors";
 import { NORMAL, OFFLINE, STATUS_NAMES, deviceStatus, readingStatus, worstSensor, type StatusCode } from "@/shared/status";
 import { summarize } from "@/shared/summarize";
-import type { Alert, AlertFrame, AlertSeverity, DeltaFrame, DeltaRow, EventKind, FleetState, Summary, TelemetryEvent } from "@/shared/types";
+import type { Alert, AlertFrame, AlertSeverity, DeltaFrame, DeltaRow, EventKind, FleetState, InsightFrame, Summary, TelemetryEvent } from "@/shared/types";
+import { AnomalyDetector } from "../ai/anomaly";
 import { buildFleet } from "./fleet";
 import { HistoryRing } from "./history";
 import { createRng, type Rng } from "./random";
@@ -23,6 +24,7 @@ export type TickResult = {
   summary: Summary;
   delta: DeltaFrame;
   alerts: AlertFrame;
+  insights: InsightFrame;
   events: TelemetryEvent[];
 };
 
@@ -35,6 +37,12 @@ const ANOMALIES_PER_TICK = 4;
 const SEVERE_SHARE = 0.25;
 /** A gap this long between ticks means the process was paused (e.g. a frozen serverless instance). */
 const PAUSE_GAP_MS = 5000;
+/** Chance per tick (per 10k devices) that a slow fault starts: a reading creeps toward its alarm bound. */
+const DRIFT_START_P = 0.35;
+const INSIGHT_LIMIT = 12;
+
+/** A slow fault: the baseline ramps from origin to target, holds there, then is repaired at endMs. */
+type Drift = { origin: number; target: number; startMs: number; rampMs: number; endMs: number };
 
 /**
  * The fleet simulator. One instance ticks all 10,000 devices; SSE connections never own a
@@ -48,6 +56,10 @@ export class SimEngine {
   private readonly anomaly: Int16Array;
   private readonly offline: Uint8Array;
   private readonly openAlerts = new Map<number, Alert>();
+  /** Slow faults draw from their own rng so every other seeded sequence stays as it was. */
+  private readonly driftRng: Rng;
+  private readonly drifts = new Map<number, Drift>();
+  readonly detector: AnomalyDetector;
   private readonly dirty = new Set<number>();
   private pendingEvents: TelemetryEvent[] = [];
   private eventSeq = 0;
@@ -60,6 +72,7 @@ export class SimEngine {
 
   constructor(private readonly opts: EngineOptions) {
     this.rng = createRng(opts.seed);
+    this.driftRng = createRng(opts.seed ^ 0x5eed);
     this.bootId = opts.nowMs.toString(36);
     const devices = buildFleet(this.rng, opts.size);
     const n = devices.length;
@@ -74,6 +87,7 @@ export class SimEngine {
     this.anomaly = new Int16Array(n * SENSOR_COUNT);
     this.offline = new Uint8Array(n);
     this.history = new HistoryRing(n, opts.historyCapacity ?? 150);
+    this.detector = new AnomalyDetector(n * SENSOR_COUNT);
 
     const now = opts.nowMs;
     for (let i = 0; i < n; i++) {
@@ -164,6 +178,7 @@ export class SimEngine {
     const touched = new Set<number>();
 
     for (let k = 0; k < ANOMALIES_PER_TICK; k++) if (rng.next() < 0.9) this.startAnomaly(rng.int(n), rng.next() < SEVERE_SHARE);
+    if (this.driftRng.next() < DRIFT_START_P * (n / 10_000)) this.startDrift(nowMs);
 
     let reporting = 0;
     for (let i = 0; i < n; i++) {
@@ -180,6 +195,8 @@ export class SimEngine {
         const p = i * SENSOR_COUNT + j;
         const jitter = SENSORS[j]?.jitter ?? 0;
         const v = state.values[p] ?? 0;
+        const drift = this.drifts.get(p);
+        if (drift) this.baseline[p] = this.driftBaseline(p, drift, nowMs);
         const left = this.anomaly[p] ?? 0;
         if (left > 0) {
           this.anomaly[p] = left - 1;
@@ -188,6 +205,7 @@ export class SimEngine {
           state.values[p] = v + ((this.baseline[p] ?? v) - v) * 0.25 + rng.gauss() * jitter;
         }
         state.readingStatus[p] = readingStatus(j, state.values[p] ?? 0);
+        this.detector.observe(p, state.values[p] ?? 0, nowMs);
       }
       reporting++;
       touched.add(i);
@@ -227,12 +245,14 @@ export class SimEngine {
     }
 
     this.summaryNow = summarize(state, { seq, nowMs, reporting });
+    const insights = this.detector.scan(state, nowMs, INSIGHT_LIMIT);
     return {
       seq,
       nowMs,
       summary: this.summaryNow,
       delta: { seq, ts: iso, rows: [...touched].map((i) => this.deltaRow(i)) },
       alerts: { seq, raised, cleared, acked: [] },
+      insights: { seq, ...insights },
       events,
     };
   }
@@ -271,6 +291,29 @@ export class SimEngine {
     const p = idx * SENSOR_COUNT + j;
     this.anomaly[p] = 3 + this.rng.int(10);
     this.state.values[p] = target;
+  }
+
+  /** Start a slow fault on a random reading: its baseline creeps past the warning bound over minutes. */
+  private startDrift(nowMs: number): void {
+    const r = this.driftRng;
+    const j = r.int(SENSOR_COUNT);
+    const p = r.int(this.state.devices.length) * SENSOR_COUNT + j;
+    const s = SENSORS[j];
+    if (!s || this.drifts.has(p) || (this.anomaly[p] ?? 0) > 0) return;
+    const bound = "hi" in s && (!("lo" in s) || r.next() < 0.5) ? s.hi : "lo" in s ? s.lo : null;
+    if (!bound) return;
+    const [warn, crit] = bound;
+    const span = r.range(120_000, 300_000);
+    this.drifts.set(p, { origin: this.baseline[p] ?? s.nominal, target: warn + (crit - warn) * r.range(0.1, 0.4), startMs: nowMs, rampMs: span * 0.65, endMs: nowMs + span });
+  }
+
+  /** The drifting baseline at nowMs; once the fault is repaired it snaps back to the origin. */
+  private driftBaseline(p: number, d: Drift, nowMs: number): number {
+    if (nowMs >= d.endMs) {
+      this.drifts.delete(p);
+      return d.origin;
+    }
+    return d.origin + (d.target - d.origin) * Math.min(1, (nowMs - d.startMs) / d.rampMs);
   }
 
   private makeAlert(idx: number, st: StatusCode, iso: string): Alert {

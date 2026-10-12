@@ -30,6 +30,7 @@ export class StreamHub {
     // The live client count rides on the summary so every tab can show it without polling.
     let chunk = encodeFrame("summary", tick.seq, { ...tick.summary, clients: this.connections }) + encodeFrame("delta", tick.seq, tick.delta);
     if (tick.alerts.raised.length || tick.alerts.cleared.length || tick.alerts.acked.length) chunk += encodeFrame("alert", tick.seq, tick.alerts);
+    chunk += encodeFrame("insight", tick.seq, tick.insights);
     this.emitter.emit("frame", chunk);
     return chunk;
   }

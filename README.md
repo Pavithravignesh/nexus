@@ -31,6 +31,7 @@ Everything cross-filters: clicking a KPI, donut slice, radar sensor, heatmap zon
 - **Filters:** status, floor, zone, device type, breaching sensor, stale only, and search (id, name, type, zone key, rack, room); **saved views** (name, recall, delete; per browser).
 - **KPI strip:** total, normal, warning, critical, offline and devices reporting per tick, with 60 s sparklines.
 - **Industrial 3D Control Room:** 4 halls × 6 zones × 3 racks, one LED per device (all 10,000 in one three.js InstancedMesh). Rack strips show zone health; critical LEDs pulse. Hover to inspect, click a rack to filter, click an LED to open the device; drag to orbit, ctrl+scroll to zoom.
+- **Predictive insights:** online anomaly detection over all 100,000 readings. It lists readings that are still inside their alarm bounds but are either ≥ 4σ from their learned normal or on course to cross the warning bound within 5 minutes (with an ETA). It gives an early warning before the threshold alert fires. Click a row to open the device.
 - **Live alerts:** own search, severity chips with counts, acknowledgement filter, sort (severity / newest / oldest), 10/25/50 pages. **Ack** an alert and every open tab sees it within a second.
 - **Activity feed:** the last 500 transitions, with search, kind and severity chips and pages.
 - **Fleet health** (3-minute trend), **status distribution** donut, **sensor breach radar**, **location health** heatmap (floor × zone) and **fleet averages** gauges.
@@ -58,7 +59,7 @@ Browser ── snapshot (REST, once + after reconnect) ──► Next.js route h
 | `GET /api/telemetry/latest` | every device as a packed row (the client snapshot) |
 | `GET /api/summary` | counts by status, sensor and zone, averages, top alerts |
 | `GET /api/fleet` | columnar device metadata for the snapshot |
-| `GET /api/stream` | SSE: `hello` (server clock, tick, stale/offline windows), `summary` (+ live viewer count), `delta`, `alert` (raised / cleared / acked), `thresholds`, heartbeat |
+| `GET /api/stream` | SSE: `hello` (server clock, tick, stale/offline windows), `summary` (+ live viewer count), `delta`, `alert` (raised / cleared / acked), `insight` (anomaly watch list), `thresholds`, heartbeat |
 | `GET /api/events` | persisted events newest first: `deviceId, kind, severity, limit, cursor` (keyset pagination) |
 | `POST /api/alerts/{id}/ack` | acknowledge an open alert; broadcast to every tab |
 | `GET` / `PUT` / `DELETE /api/thresholds` | read, replace (validated) or reset the alarm rules; broadcast as an SSE `thresholds` frame |
@@ -73,6 +74,13 @@ Design docs: [`docs/diagrams`](docs/diagrams) (HLD, architecture, wireframe — 
 - **Deltas, not full frames:** only devices that reported or changed status (~15% per tick).
 - **No React state for 10k devices:** a `TelemetryStore` holds typed arrays; rows and panels subscribe via `useSyncExternalStore`, batched per animation frame.
 - **Hot state in memory, MongoDB for persistence:** latest readings and events are flushed in bulk every 5 s.
+- **Anomaly detection as streaming statistics, not a trained model** (`src/server/ai/anomaly.ts`):
+  - Each reading learns its own normal: an EWMA mean, variance and rate of change, held in typed arrays (O(1) per reading, one pass per tick, no training data).
+  - Outliers do not update the variance, so a slow drift cannot hide itself.
+  - Only deviations heading toward an alarm bound are flagged, so a reading recovering after a spike stays quiet.
+  - Breaching readings are left to the threshold alerts.
+  - The simulator injects slow "drift" faults (a reading creeps past its warning bound over a few minutes, then is repaired), so there is something to predict.
+  - Next steps: seasonality-aware baselines, a learned model (e.g. isolation forest or an autoencoder) trained on the persisted history, correlation across sensors and racks, and an LLM assistant that explains a flag from the device's event log.
 
 ## Scaling to 100k / 1M devices
 
@@ -82,7 +90,7 @@ Shard the simulator/ingest per site behind a queue (Kafka/NATS); keep per-zone a
 
 - After editing simulator code (`src/server/sim`), restart `npm run dev`: the running fleet is cached on `globalThis` so hot reload does not start a second simulator, which also means it keeps the old code until restart.
 - To run a production build next to `next dev`: `NEXT_DIST_DIR=.next-verify npm run build && NEXT_DIST_DIR=.next-verify npx next start -p 3100`.
-- Tests: 128 unit tests across the shared domain, simulator, stream hub, SSE response, routes, services, repos, client store and helpers (`npm test`).
+- Tests: 137 unit tests across the anomaly detector, the shared domain, simulator, stream hub, SSE response, routes, services, repos, client store and helpers (`npm test`).
 
 ## Known limitations
 

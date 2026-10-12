@@ -1,6 +1,6 @@
 import { SENSOR_COUNT } from "@/shared/sensors";
 import { CRITICAL, WARNING, readingStatus } from "@/shared/status";
-import type { Alert, AlertFrame, DeltaFrame, DeltaRow, DeviceMeta, HelloFrame, Summary } from "@/shared/types";
+import type { Alert, AlertFrame, DeltaFrame, DeltaRow, DeviceMeta, HelloFrame, InsightFrame, Summary } from "@/shared/types";
 import { StreamStats } from "./stream-stats";
 
 // Client-side live state. Holds the fleet in typed arrays OUTSIDE React so a tick never
@@ -9,7 +9,7 @@ import { StreamStats } from "./stream-stats";
 // coalesced into one per animation frame.
 
 export type ConnectionState = "connecting" | "live" | "stale" | "reconnecting";
-export type Topic = "fleet" | "summary" | "alerts" | "connection" | "stream";
+export type Topic = "fleet" | "summary" | "alerts" | "insights" | "connection" | "stream";
 
 export type TrendPoint = { t: number; normal: number; warning: number; critical: number; offline: number; reporting: number };
 export type FeedItem = { id: string; ts: number; kind: "raised" | "cleared" | "acked"; alert: Alert };
@@ -36,6 +36,8 @@ export class TelemetryStore {
   trend: TrendPoint[] = [];
   alerts: Alert[] = [];
   feed: FeedItem[] = [];
+  /** The anomaly detector's latest watch list; null until the first insight frame arrives. */
+  insights: InsightFrame | null = null;
   connection: ConnectionState = "connecting";
   /** When the current connection state began; lets the UI ignore sub-second planned reconnects. */
   connectionSince = 0;
@@ -49,7 +51,7 @@ export class TelemetryStore {
   offlineAfterMs = 30_000;
   readonly stats: StreamStats;
 
-  private readonly versions: Record<Topic, number> = { fleet: 0, summary: 0, alerts: 0, connection: 0, stream: 0 };
+  private readonly versions: Record<Topic, number> = { fleet: 0, summary: 0, alerts: 0, insights: 0, connection: 0, stream: 0 };
   private rowVersions = new Uint32Array(0);
   private readonly listeners = new Map<Topic, Set<Listener>>();
   private readonly rowListeners = new Map<number, Set<Listener>>();
@@ -146,6 +148,12 @@ export class TelemetryStore {
     if (this.feed.length > FEED_CAPACITY) this.feed.length = FEED_CAPACITY;
     this.alerts = sortAlerts(next);
     this.touch("alerts");
+  }
+
+  applyInsights(frame: InsightFrame): void {
+    if (!this.loaded) return;
+    this.insights = frame;
+    this.touch("insights");
   }
 
   /** Optimistic acknowledge: mark the alert acked right away; the server's `acked` frame confirms it. */

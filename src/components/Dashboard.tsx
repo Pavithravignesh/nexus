@@ -12,6 +12,7 @@ import { FleetHealthChart, StatusDonut } from "./charts/FleetCharts";
 import { BreachRadar, FleetGauges, ZoneHeatmap } from "./charts/LocationCharts";
 import { DeviceTable } from "./devices/DeviceTable";
 import { DeviceDrawer } from "./drawer/DeviceDrawer";
+import { InsightsPanel } from "./insights/InsightsPanel";
 import { SavedViews } from "./filters/SavedViews";
 import { KpiStrip } from "./kpi/KpiStrip";
 import { STATUS_UI } from "./status";
@@ -31,6 +32,7 @@ function Board(): React.JSX.Element {
 
   return (
     <div className="min-h-screen">
+      
       <TopBar query={f.q} onQuery={(v) => setF((x) => ({ ...x, q: v }))} />
       <DisconnectedBanner />
       <main className="mx-auto flex max-w-[1600px] flex-col gap-4 p-5">
@@ -111,6 +113,8 @@ function Board(): React.JSX.Element {
                 <AlertsPanel onOpen={setSelected} matches={matches} />
               </div>
             </div>
+
+            <InsightsPanel onOpen={setSelected} matches={matches} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="min-w-0 lg:col-span-5">

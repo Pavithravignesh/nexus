@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { decodeFleetMeta } from "@/shared/fleet-meta";
 import { fleetMetaSchema, latestSchema, summaryResponseSchema } from "@/shared/schemas/api.schema";
-import { alertFrameSchema, deltaFrameSchema, helloSchema, summarySchema } from "@/shared/schemas/stream.schema";
+import { alertFrameSchema, deltaFrameSchema, helloSchema, insightFrameSchema, summarySchema } from "@/shared/schemas/stream.schema";
 import { fetchJson } from "@/lib/api";
 import { TelemetryStore, type Topic } from "@/lib/telemetry-store";
 import { fetchThresholds } from "@/lib/thresholds-api";
@@ -103,6 +103,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }): 
         const a = parse(alertFrameSchema, data);
         if (a) store.applyAlerts(a);
       });
+      es.addEventListener("insight", (e) => {
+        const { data, eventId } = raw(e);
+        store.recordFrame(data.length, { eventId });
+        const f = parse(insightFrameSchema, data);
+        if (f) store.applyInsights(f);
+      });
       es.addEventListener("thresholds", (e) => {
         const { data, eventId } = raw(e);
         store.recordFrame(data.length, { eventId });
@@ -167,7 +173,7 @@ export function useLive(): LiveApi {
 export function useTopic(topic: Topic): TelemetryStore {
   const { store } = useLive();
   useSyncExternalStore(
-    (cb) => store.subscribe(topic, cb),
+    (cb) => store.subscribe(topic, cb), 
     () => store.version(topic),
     () => 0,
   );

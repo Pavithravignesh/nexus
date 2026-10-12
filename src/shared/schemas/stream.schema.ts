@@ -3,7 +3,7 @@ import { ZONE_KEYS, type ZoneKey } from "../fleet";
 import { SENSOR_COUNT, SENSOR_KEYS } from "../sensors";
 import { STATUS_NAMES } from "../status";
 import { thresholdsSchema } from "../thresholds";
-import type { Alert, AlertFrame, DeltaFrame, HelloFrame, Summary } from "../types";
+import type { Alert, AlertFrame, DeltaFrame, HelloFrame, Insight, InsightFrame, Summary } from "../types";
 
 // SSE wire schemas. The browser parses every frame with these; `satisfies` pins each schema
 // to the hand-written type in types.ts so the two cannot drift.
@@ -60,6 +60,24 @@ export const alertFrameSchema = z.object({
   acked: z.array(z.object({ id: z.string().min(1), ackedAt: isoDate })),
 }) satisfies z.ZodType<AlertFrame>;
 
+export const insightSchema = z.object({
+  deviceIdx: count,
+  deviceId: z.string().regex(/^DEV-\d{5}$/),
+  sensor: sensorKey,
+  value: z.number(),
+  expected: z.number(),
+  z: z.number(),
+  trendPerMin: z.number(),
+  etaSec: z.number().nonnegative().nullable(),
+  since: isoDate,
+}) satisfies z.ZodType<Insight>;
+
+export const insightFrameSchema = z.object({
+  seq: count,
+  flagged: count,
+  items: z.array(insightSchema),
+}) satisfies z.ZodType<InsightFrame>;
+
 /** Event names on the stream, mapped to the schema that validates their data. */
 export const streamEvents = {
   hello: helloSchema,
@@ -67,6 +85,7 @@ export const streamEvents = {
   delta: deltaFrameSchema,
   alert: alertFrameSchema,
   thresholds: thresholdsSchema,
+  insight: insightFrameSchema,
 } as const;
 
 export type StreamEventName = keyof typeof streamEvents;
