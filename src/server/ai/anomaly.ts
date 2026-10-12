@@ -1,5 +1,5 @@
 import { SENSORS, SENSOR_COUNT, SENSOR_KEYS, roundFor } from "@/shared/sensors";
-import { NORMAL, OFFLINE } from "@/shared/status";
+import { NORMAL, OFFLINE, readingStatus } from "@/shared/status";
 import { boundsFor } from "@/shared/thresholds";
 import type { FleetState, Insight } from "@/shared/types";
 
@@ -116,8 +116,12 @@ export class AnomalyDetector {
   private score(state: FleetState, p: number, i: number, j: number, b: ReturnType<typeof boundsFor>): Insight | null {
     const { opts } = this;
     const key = SENSOR_KEYS[j];
-    if (!key || (this.count[p] ?? 0) < opts.warmup || state.readingStatus[p] !== NORMAL) return null;
-    const value = state.values[p] ?? 0;
+    if (!key || (this.count[p] ?? 0) < opts.warmup) return null;
+    // Judge the last value the device actually reported, and derive its status here: the live
+    // value array can move between reports (an injected spike) before its stored status does.
+    // The status is taken from the rounded value, as the wire and the browser see it.
+    const value = this.last[p] ?? 0;
+    if (readingStatus(j, roundFor(j, value)) !== NORMAL) return null;
     const mean = this.mean[p] ?? value;
     const z = (value - mean) / Math.max(Math.sqrt(this.variance[p] ?? 0), SD_FLOOR[j] ?? 0);
     if (Math.abs(z) < opts.zWatch) return null;

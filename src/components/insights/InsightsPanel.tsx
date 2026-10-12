@@ -8,8 +8,9 @@ import { ago } from "../status";
 const ROWS = 8;
 
 function eta(sec: number): string {
-  if (sec < 60) return `${sec}s`;
-  return `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
+  if (sec < 1) return "<1s";
+  if (sec < 60) return `~${sec}s`;
+  return `~${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
 }
 
 function num(v: number, decimals: number): string {
@@ -89,7 +90,7 @@ function Row({ x, now, onOpen }: { x: Insight; now: number; onOpen: (idx: number
         {num(x.trendPerMin, d + 1)}
       </td>
       <td className="pr-3" style={{ color }}>
-        {soon ? `▲ warning in ~${eta(x.etaSec ?? 0)}` : "◆ unusual deviation"}
+        {soon ? `▲ warning in ${eta(x.etaSec ?? 0)}` : "◆ unusual deviation"}
       </td>
       <td className="text-right text-muted">{ago(Date.parse(x.since), now)}</td>
     </tr>

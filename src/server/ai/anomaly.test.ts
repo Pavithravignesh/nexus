@@ -81,6 +81,16 @@ describe("AnomalyDetector", () => {
     expect(flagged).toBe(0);
   });
 
+  it("judges the last reported value, not a live value that moved before its status did", () => {
+    // Regression: an injected spike changes state.values between reports while the stored
+    // reading status still says NORMAL; it must not show up as "warning in ~0s".
+    const d = new AnomalyDetector(SENSOR_COUNT);
+    const state = fleet([23, 46, 650, 20.9, 28, 12, 24, 1013, 52, 8]);
+    for (let k = 0; k < 30; k++) d.observe(TEMP, 23 + (k % 3) * 0.1, T0 + k * 5000);
+    state.values[TEMP] = 34; // past the warning bound, status left at NORMAL
+    expect(d.scan(state, T0 + 150_000, 5).flagged).toBe(0);
+  });
+
   it("ignores deviations away from the alarm bound", () => {
     // Temperature only has a high bound, so a drop is not on course to alarm.
     expect(feed([...noisy(23, 0.3, 40), 17]).flagged).toBe(0);
@@ -114,7 +124,10 @@ describe("AnomalyDetector in the simulator", () => {
     for (let k = 1; k <= 300; k++) {
       const t = e.step(T0 + k * 1000);
       lastFrame = t.insights;
-      for (const x of t.insights.items) if (x.etaSec !== null) forecasts.add(`${x.deviceIdx}:${x.sensor}`);
+      for (const x of t.insights.items) {
+        expect(readingStatus(sensorIndex(x.sensor), x.value)).toBe(NORMAL); // never a reading that already breaches
+        if (x.etaSec !== null) forecasts.add(`${x.deviceIdx}:${x.sensor}`);
+      }
     }
     expect(insightFrameSchema.safeParse(lastFrame).success).toBe(true);
     expect(forecasts.size).toBeGreaterThan(0);
