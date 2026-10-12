@@ -11,7 +11,9 @@
     "test": "vitest run",
     "db": "node scripts/start-mongo.mjs",
     "seed": "tsx scripts/seed.ts",
-    "diagrams": "node docs/diagrams/serve.mjs"
+    "diagrams": "node docs/diagrams/serve.mjs",
+    "push": "node tools/push.mjs",
+    "status": "node tools/push.mjs --status"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
