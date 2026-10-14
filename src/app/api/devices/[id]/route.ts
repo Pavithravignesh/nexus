@@ -1,7 +1,7 @@
 import { handleRoute } from "@/server/errors";
 import { recentDeviceEvents } from "@/server/services/events.service";
 import { deviceDetail, requireDeviceIdx } from "@/server/services/fleet.service";
-import { getRuntime } from "@/server/sim/runtime";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

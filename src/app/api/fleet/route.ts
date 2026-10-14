@@ -1,7 +1,7 @@
 import { SITE } from "@/shared/fleet";
 import { encodeFleetMeta } from "@/shared/fleet-meta";
 import { handleRoute } from "@/server/errors";
-import { getRuntime } from "@/server/sim/runtime";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

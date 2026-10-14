@@ -1,6 +1,6 @@
 # Client real-time pattern
 
-## TelemetryStore (src/lib/telemetry-store.ts)
+## TelemetryStore (src/client/telemetry-store.ts)
 
 Plain class, one instance per page, outside React.
 

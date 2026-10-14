@@ -1,6 +1,6 @@
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import type { Alert, AlertSeverity, DeviceMeta } from "@/shared/types";
-import type { FeedItem } from "./telemetry-store";
+import type { FeedItem } from "../client/telemetry-store";
 
 // Local filters for the alert list and the activity feed (on top of the dashboard-wide
 // device filter). Pure so they are unit tested.

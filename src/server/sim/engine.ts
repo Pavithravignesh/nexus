@@ -2,7 +2,7 @@ import { SENSORS, SENSOR_COUNT, SENSOR_KEYS, roundFor } from "@/shared/sensors";
 import { NORMAL, OFFLINE, STATUS_NAMES, deviceStatus, readingStatus, worstSensor, type StatusCode } from "@/shared/status";
 import { summarize } from "@/shared/summarize";
 import type { Alert, AlertFrame, AlertSeverity, DeltaFrame, DeltaRow, EventKind, FleetState, InsightFrame, Summary, TelemetryEvent } from "@/shared/types";
-import { AnomalyDetector } from "../ai/anomaly";
+import { AnomalyDetector } from "../insights/anomaly";
 import { buildFleet } from "./fleet";
 import { HistoryRing } from "./history";
 import { createRng, type Rng } from "./random";

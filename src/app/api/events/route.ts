@@ -1,5 +1,5 @@
 import { handleRoute, parseQuery } from "@/server/errors";
-import { eventsQuerySchema } from "@/server/repos/event-query";
+import { eventsQuerySchema } from "@/server/persistence/repos/event-query";
 import { listEvents } from "@/server/services/events.service";
 
 export const runtime = "nodejs";

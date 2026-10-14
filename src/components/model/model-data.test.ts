@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { TelemetryStore } from "@/lib/telemetry-store";
+import { TelemetryStore } from "@/client/telemetry-store";
 import { SimEngine } from "@/server/sim/engine";
-import { encodeFrame } from "@/server/services/stream-hub";
+import { encodeFrame } from "@/server/stream/stream-hub";
 import { SENSOR_COUNT, sensorIndex } from "@/shared/sensors";
 import { deltaRowSchema } from "@/shared/schemas/stream.schema";
 import type { Alert } from "@/shared/types";

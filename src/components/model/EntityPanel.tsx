@@ -1,7 +1,7 @@
 "use client";
 
-import { useTopic } from "@/hooks/useTelemetry";
-import type { TelemetryStore } from "@/lib/telemetry-store";
+import { useTopic } from "@/client/useTelemetry";
+import type { TelemetryStore } from "@/client/telemetry-store";
 import { SENSORS, sensorIndex, type SensorKey } from "@/shared/sensors";
 import {
   ENTITIES,

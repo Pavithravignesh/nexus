@@ -2,11 +2,11 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { useLive, useRow } from "@/hooks/useTelemetry";
+import { useLive, useRow } from "@/client/useTelemetry";
 import { SENSOR_COUNT, roundFor, sensorAt, sensorIndex, type SensorKey } from "@/shared/sensors";
 import { CRITICAL, OFFLINE, WARNING, worstSensor, type StatusCode } from "@/shared/status";
 import { paginate } from "@/lib/pagination";
-import type { TelemetryStore } from "@/lib/telemetry-store";
+import type { TelemetryStore } from "@/client/telemetry-store";
 import { Pagination } from "../ui/Pagination";
 import { STATUS_UI, StatusBadge, ago } from "../status";
 

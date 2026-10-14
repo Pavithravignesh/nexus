@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StreamHub } from "@/server/services/stream-hub";
+import { StreamHub } from "@/server/stream/stream-hub";
 import { SimEngine } from "@/server/sim/engine";
-import { streamResponse } from "@/server/services/sse-response";
+import { streamResponse } from "@/server/stream/sse-response";
 
 const T0 = Date.UTC(2026, 8, 28, 10);
 const decoder = new TextDecoder();

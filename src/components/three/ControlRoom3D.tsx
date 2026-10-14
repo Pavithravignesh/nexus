@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLive, useTopic } from "@/hooks/useTelemetry";
+import { useLive, useTopic } from "@/client/useTelemetry";
 import { SENSOR_COUNT, roundFor, sensorAt } from "@/shared/sensors";
 import { OFFLINE, worstSensor, zoneStatus, type StatusCode } from "@/shared/status";
 import { zoneKey, type Floor, type Zone } from "@/shared/fleet";

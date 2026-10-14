@@ -1,6 +1,6 @@
 import { handleRoute, parseBody } from "@/server/errors";
 import { applyThresholds, currentThresholds, resetThresholds } from "@/server/services/thresholds.service";
-import { getRuntime } from "@/server/sim/runtime";
+import { getRuntime } from "@/server/runtime";
 import { thresholdsSchema } from "@/shared/thresholds";
 
 export const runtime = "nodejs";

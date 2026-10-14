@@ -1,8 +1,8 @@
 import type { Thresholds } from "@/shared/thresholds";
-import { env } from "../env";
-import { logger } from "../logger";
-import { StreamHub } from "../services/stream-hub";
-import { SimEngine } from "./engine";
+import { env } from "./env";
+import { logger } from "./logger";
+import { StreamHub } from "./stream/stream-hub";
+import { SimEngine } from "./sim/engine";
 
 export type Runtime = {
   engine: SimEngine;

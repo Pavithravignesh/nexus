@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useNow, useTopic } from "@/hooks/useTelemetry";
+import { useNow, useTopic } from "@/client/useTelemetry";
 import { ago } from "../status";
 
 const STATE = {

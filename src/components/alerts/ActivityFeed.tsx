@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useTopic } from "@/hooks/useTelemetry";
+import { useTopic } from "@/client/useTelemetry";
 import { ALL_FEED_KINDS, ALL_SEVERITIES, filterFeed, toggleInSet, type FeedKind } from "@/lib/list-filters";
 import { paginate } from "@/lib/pagination";
-import { FEED_CAPACITY } from "@/lib/telemetry-store";
+import { FEED_CAPACITY } from "@/client/telemetry-store";
 import type { AlertSeverity } from "@/shared/types";
 import { SEVERITY_CODE, STATUS_UI, fmt } from "../status";
 import { Chip, SearchInput } from "../ui/ListControls";

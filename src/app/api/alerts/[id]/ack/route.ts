@@ -1,6 +1,6 @@
 import { handleRoute } from "@/server/errors";
 import { ackAlert } from "@/server/services/alerts.service";
-import { getRuntime } from "@/server/sim/runtime";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

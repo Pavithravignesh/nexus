@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StreamHub } from "@/server/services/stream-hub";
+import { StreamHub } from "@/server/stream/stream-hub";
 import { SimEngine } from "@/server/sim/engine";
-import type { Runtime } from "@/server/sim/runtime";
+import type { Runtime } from "@/server/runtime";
 import { DEFAULT_THRESHOLDS, getThresholds, setThresholds, type Thresholds } from "@/shared/thresholds";
 import { DELETE, GET, PUT } from "./route";
 
 // A small runtime instead of the real 10,000-device singleton with its timers.
 const rt = vi.hoisted(() => ({ current: null as Runtime | null }));
-vi.mock("@/server/sim/runtime", () => ({
+vi.mock("@/server/runtime", () => ({
   getRuntime: (): Runtime => {
     if (!rt.current) throw new Error("runtime not set up");
     return rt.current;

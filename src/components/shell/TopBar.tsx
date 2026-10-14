@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { useLive, useNow, useTopic } from "@/hooks/useTelemetry";
+import { useLive, useNow, useTopic } from "@/client/useTelemetry";
 import { ago } from "../status";
 import { ThresholdsButton } from "../settings/ThresholdsPanel";
 import { ConnectionPill } from "./ConnectionPill";

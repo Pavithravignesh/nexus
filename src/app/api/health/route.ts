@@ -1,7 +1,7 @@
-import { pingDb } from "@/server/db/client";
+import { pingDb } from "@/server/persistence/db/client";
 import { handleRoute } from "@/server/errors";
-import { persistenceStatus } from "@/server/services/persistence";
-import { getRuntime } from "@/server/sim/runtime";
+import { persistenceStatus } from "@/server/persistence/persistence";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

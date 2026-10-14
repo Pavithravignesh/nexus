@@ -3,7 +3,7 @@ import { buildFleet } from "@/server/sim/fleet";
 import { createRng } from "@/server/sim/random";
 import type { Alert } from "@/shared/types";
 import { ALL_FEED_KINDS, ALL_SEVERITIES, filterAlerts, filterFeed, toggleInSet, type AlertQuery } from "./list-filters";
-import type { FeedItem } from "./telemetry-store";
+import type { FeedItem } from "../client/telemetry-store";
 
 const devices = buildFleet(createRng(3), 20);
 const at = (s: number): string => new Date(Date.UTC(2026, 8, 30, 10, 0, s)).toISOString();

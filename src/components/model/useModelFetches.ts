@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
-import { fetchJson } from "@/lib/api";
-import type { TelemetryStore } from "@/lib/telemetry-store";
+import { fetchJson } from "@/client/api";
+import type { TelemetryStore } from "@/client/telemetry-store";
 import { SENSOR_COUNT, SENSOR_KEYS, roundFor, sensorIndex, type SensorKey } from "@/shared/sensors";
 import { historySchema } from "@/shared/schemas/api.schema";
 import { STATUS_NAMES } from "@/shared/status";

@@ -1,58 +1,50 @@
 # Folder layout
 
+As built (tests sit next to the file they test as `*.test.ts`):
+
 ```
 src/
-  instrumentation.ts            register(): starts the simulator singleton (Node runtime only)
+  instrumentation.ts            register(): starts the runtime, attaches persistence (Node runtime only)
   app/
-    layout.tsx                  fonts, theme script (no-flash), providers
-    page.tsx                    the dashboard (client shell composes panels)
+    layout.tsx, page.tsx        fonts, theme script (no-flash); the dashboard
     error.tsx                   error boundary with retry
-    api/
-      health/route.ts
-      summary/route.ts
-      devices/route.ts          list/search/filter, ?q=&status=&zone=&floor=&sensor=&limit=&cursor=
-      devices/[id]/route.ts
-      devices/[id]/history/route.ts
-      telemetry/latest/route.ts
+    model/page.tsx              /model: live entity diagram
+    api/                        thin route handlers: zod in, envelope out
+      health · summary · fleet · telemetry/latest · events · thresholds
+      devices · devices/[id] · devices/[id]/history · alerts/[id]/ack
       stream/route.ts           SSE, subscribes to the stream hub
-  components/
-    shell/                      TopBar, ConnectionPill, ThemeToggle, DisconnectedBanner
-    kpi/                        KpiStrip, KpiCard (+ sparkline)
-    charts/                     common.ts, FleetHealthArea, StatusDonut, ZoneHeatmap,
-                                SensorBreachBars, TimeSeriesChart, Sparkline
-    alerts/                     AlertsPanel, AlertItem, ActivityFeed
-    devices/                    DeviceTable (virtual), DeviceRow, FilterBar, StatusBadge
-    drawer/                     DeviceDrawer, SensorTile, DeviceTimeline
-    ui/                         Skeleton, EmptyState, ErrorState, Kbd, Tooltip
-  hooks/
-    useSnapshot.ts              initial + post-reconnect load into the store
-    useLiveStream.ts            owns EventSource, connection state, backoff
-    useTelemetry.ts             useSyncExternalStore selectors over the store
-    useResizeObserver.ts
-  lib/
-    api.ts                      fetchJson<T>() for the envelope
-    telemetry-store.ts          TelemetryStore class (client)
+  components/                   UI by feature
+    shell/ kpi/ charts/ alerts/ devices/ drawer/ three/ insights/
+    filters/ settings/ model/ ui/  status.tsx  Dashboard.tsx
+  client/                       browser data layer
+    useTelemetry.tsx            TelemetryProvider (snapshot, then EventSource), useTopic, useRow
+    telemetry-store.ts          TelemetryStore: typed arrays outside React, topic/row notifications
+    stream-stats.ts             live stream metrics for the connection pill
+    api.ts, thresholds-api.ts   fetchJson() over the { ok, data } envelope
+  hooks/                        UI-only hooks: useSavedViews, useFocusTrap
+  lib/                          pure helpers: device-filters, list-filters, pagination
   server/
+    runtime.ts                  composition root: one SimEngine + one StreamHub + 1 s tick + 5 s flush, on globalThis
     env.ts                      zod-validated env, the only process.env reader
     logger.ts                   pino
-    errors.ts                   ApiError + handleRoute
-    db/ client.ts collections.ts indexes.ts
-    repos/ devices.repo.ts readings.repo.ts events.repo.ts
-    sim/
-      engine.ts                 singleton: tick loop, state arrays, ring buffers
-      generators.ts             per-sensor random walk + anomaly episodes + offline flaps
-      fleet.ts                  builds 10,000 device definitions deterministically (seeded)
-    services/
-      summary.service.ts devices.service.ts history.service.ts stream-hub.ts
-  shared/
-    sensors.ts                  sensor catalogue: key, label, unit, decimals, thresholds
-    status.ts                   deriveReadingStatus, deriveDeviceStatus (pure, tested)
-    summarize.ts                summary aggregation (pure, tested)
-    types.ts
-    schemas/                    zod: device, reading, summary, delta, alert, api envelope
+    errors.ts                   ApiError + handleRoute (envelope, request id, logging)
+    sim/                        the world model: engine.ts (tick, state arrays, alerts, events),
+                                fleet.ts (seeded layout), history.ts (ring buffer), random.ts (mulberry32)
+    insights/anomaly.ts         online anomaly detector (Predictive insights)
+    services/                   business logic over the engine: fleet, alerts, thresholds, events
+    stream/                     stream-hub.ts (serialise once, fan out), sse-response.ts (one SSE connection)
+    persistence/                persistence.ts (attach, flush, retry)
+      repos/                    devices, readings, events, settings, event-query (cursor paging)
+      db/                       client.ts, collections.ts, indexes.ts
+  shared/                       contract for server and browser
+    sensors.ts fleet.ts fleet-meta.ts status.ts thresholds.ts summarize.ts types.ts
+    schemas/                    zod: stream frames (stream.schema.ts), API responses (api.schema.ts)
 scripts/
-  start-mongo.mjs               reuse from try_cladue
+  start-mongo.mjs               local mongod for development
   seed.ts                       idempotent: 10,000 devices + initial readings
+  push.mjs                      push via `gh api` (npm run push / npm run status) where git.exe is blocked
+  dev-office.mjs                npm run dev:office: dev server where native binaries are blocked
+  office-preload.cjs            its WebAssembly shims for lightningcss and Tailwind oxide
 ```
 
 # Layer contract
@@ -60,11 +52,13 @@ scripts/
 | Layer | Owns | Never does |
 |---|---|---|
 | `app/**` | parse input, call one service, map to response | business rules, Mongo |
-| `server/services` | composition, filtering, history slicing, fan-out | import `next/*` |
-| `server/sim` | the fleet state, the tick, generating values | HTTP, Mongo query syntax |
-| `server/repos` | Mongo queries, bulkWrite, id mapping | return raw documents |
+| `server/runtime.ts` | wiring: engine + hub + timers, the persistence hooks | business rules |
+| `server/services` | business logic: filtering, details, history slicing, ack, thresholds | import `next/*` |
+| `server/sim` | the fleet state, the tick, generating values, alerts, events | HTTP, Mongo, timers |
+| `server/stream` | SSE fan-out: serialise each tick once, one listener per connection | business rules |
+| `server/persistence` | attach/flush/retry; repos do Mongo queries, bulkWrite, id mapping | return raw documents |
 | `shared` | types, schemas, thresholds, pure derivations | Node-only imports |
-| `components`, `hooks`, `lib` | rendering, stream state, client store | import `server/*` |
+| `client`, `components`, `hooks`, `lib` | client store, stream state, rendering, pure helpers | import `server/*` |
 
 # Data model (MongoDB)
 

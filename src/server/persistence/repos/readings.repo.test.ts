@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SENSOR_COUNT, sensorIndex } from "@/shared/sensors";
 import { CRITICAL } from "@/shared/status";
-import { SimEngine } from "../sim/engine";
+import { SimEngine } from "../../sim/engine";
 import { readingDocs } from "./readings.repo";
 
 describe("readingDocs", () => {

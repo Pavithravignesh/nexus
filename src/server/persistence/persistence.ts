@@ -1,13 +1,13 @@
 import { DEFAULT_THRESHOLDS } from "@/shared/thresholds";
-import { ensureIndexes } from "../db/indexes";
+import { ensureIndexes } from "./db/indexes";
 import { env } from "../env";
 import { logger } from "../logger";
-import { devicesRepo } from "../repos/devices.repo";
-import { eventsRepo } from "../repos/events.repo";
-import { readingsRepo } from "../repos/readings.repo";
-import { settingsRepo } from "../repos/settings.repo";
-import type { Runtime } from "../sim/runtime";
-import { applyThresholds, currentThresholds } from "./thresholds.service";
+import { devicesRepo } from "./repos/devices.repo";
+import { eventsRepo } from "./repos/events.repo";
+import { readingsRepo } from "./repos/readings.repo";
+import { settingsRepo } from "./repos/settings.repo";
+import type { Runtime } from "../runtime";
+import { applyThresholds, currentThresholds } from "../services/thresholds.service";
 
 const RETRY_MS = 15_000;
 const log = logger.child({ mod: "persistence" });

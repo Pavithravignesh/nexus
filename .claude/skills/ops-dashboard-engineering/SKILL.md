@@ -27,11 +27,12 @@ Browser
 
 Next.js route handlers (src/app/api/**)          thin: parse with zod, call one service
         ▼
-Services (src/server/services/*)                 summary, devices, history, stream hub
+Services (src/server/services/*)                 devices, history, alerts, thresholds, events
         ▼
-Simulator engine (src/server/sim/*)              ONE in-process singleton, ticks every 1 s
+Simulator engine (src/server/sim/*)              ONE in-process singleton (src/server/runtime.ts), ticks every 1 s
         ├─► in-memory state + ring-buffer history (source of truth for "now")
-        └─► repos (src/server/repos/*)            batched bulkWrite every FLUSH_INTERVAL_MS
+        ├─► stream hub (src/server/stream/*)      serialise once per tick, fan out over SSE
+        └─► persistence (src/server/persistence/*) batched bulkWrite every FLUSH_INTERVAL_MS
                 ▼
 MongoDB: devices · latest_readings · events
 ```
@@ -39,7 +40,7 @@ MongoDB: devices · latest_readings · events
 Rules:
 - **Route handlers are thin.** No business rules in `app/**`.
 - **Services never import `next/*`** or touch `Request`/`Response`.
-- **Repos are the only Mongo callers.** No collection names outside `src/server/db/`.
+- **Repos are the only Mongo callers.** No collection names outside `src/server/persistence/db/`.
 - **The simulator is a singleton on `globalThis`**, started from `src/instrumentation.ts`.
   Hot reload must not start a second one. One ticker for the whole fleet; SSE connections
   subscribe to the stream hub (an `EventEmitter`), they never own a timer.

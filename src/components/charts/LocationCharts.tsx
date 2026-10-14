@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTopic } from "@/hooks/useTelemetry";
+import { useTopic } from "@/client/useTelemetry";
 import { FLOORS, ZONES, zoneKey, type Floor, type Zone } from "@/shared/fleet";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import { readingStatus, zoneStatus, type StatusCode } from "@/shared/status";

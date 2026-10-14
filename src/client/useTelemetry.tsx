@@ -4,9 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, us
 import { decodeFleetMeta } from "@/shared/fleet-meta";
 import { fleetMetaSchema, latestSchema, summaryResponseSchema } from "@/shared/schemas/api.schema";
 import { alertFrameSchema, deltaFrameSchema, helloSchema, insightFrameSchema, summarySchema } from "@/shared/schemas/stream.schema";
-import { fetchJson } from "@/lib/api";
-import { TelemetryStore, type Topic } from "@/lib/telemetry-store";
-import { fetchThresholds } from "@/lib/thresholds-api";
+import { fetchJson } from "@/client/api";
+import { TelemetryStore, type Topic } from "@/client/telemetry-store";
+import { fetchThresholds } from "@/client/thresholds-api";
 import { setThresholds, thresholdsSchema } from "@/shared/thresholds";
 
 /** The stream counts as quiet after this many missed ticks (tick length comes from the server). */

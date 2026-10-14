@@ -2,12 +2,12 @@
 // upserts by id, so running it twice leaves the same data. Uses the same seed as the
 // simulator, so DEV-04211 is in the same rack in the database and on screen.
 import "dotenv/config";
-import { closeDb } from "../src/server/db/client";
-import { ensureIndexes } from "../src/server/db/indexes";
+import { closeDb } from "../src/server/persistence/db/client";
+import { ensureIndexes } from "../src/server/persistence/db/indexes";
 import { env } from "../src/server/env";
-import { devicesRepo } from "../src/server/repos/devices.repo";
-import { eventsRepo } from "../src/server/repos/events.repo";
-import { readingsRepo } from "../src/server/repos/readings.repo";
+import { devicesRepo } from "../src/server/persistence/repos/devices.repo";
+import { eventsRepo } from "../src/server/persistence/repos/events.repo";
+import { readingsRepo } from "../src/server/persistence/repos/readings.repo";
 import { SimEngine } from "../src/server/sim/engine";
 
 async function main(): Promise<void> {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Alert } from "@/shared/types";
 import { ApiError } from "../errors";
 import type { SimEngine } from "../sim/engine";
-import type { StreamHub } from "./stream-hub";
+import type { StreamHub } from "../stream/stream-hub";
 
 const alertIdSchema = z.string().trim().min(1).max(64);
 

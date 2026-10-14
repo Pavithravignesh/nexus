@@ -1,5 +1,5 @@
 import { MongoClient, type Db } from "mongodb";
-import { env } from "../env";
+import { env } from "../../env";
 
 // One MongoClient per process, cached on globalThis so dev hot reload does not open a new pool per edit.
 const g = globalThis as typeof globalThis & { __nexusMongo?: Promise<MongoClient> };

@@ -6,7 +6,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { FLOORS, ZONES, zoneKey, type Floor, type Zone, type ZoneKey } from "@/shared/fleet";
 import { CRITICAL, zoneStatus, type StatusCode } from "@/shared/status";
-import type { TelemetryStore } from "@/lib/telemetry-store";
+import type { TelemetryStore } from "@/client/telemetry-store";
 
 // Imperative three.js scene: 4 halls (floors) x 6 zones x 3 racks, one LED per device. All
 // 10,000 LEDs are ONE InstancedMesh; a tick only rewrites the colours of LEDs whose state

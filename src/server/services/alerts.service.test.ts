@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "../errors";
 import { SimEngine } from "../sim/engine";
 import { ackAlert } from "./alerts.service";
-import { StreamHub } from "./stream-hub";
+import { StreamHub } from "../stream/stream-hub";
 
 const T0 = Date.UTC(2026, 8, 28, 10);
 

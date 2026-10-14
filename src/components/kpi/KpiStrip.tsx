@@ -1,8 +1,8 @@
 "use client";
 
-import { useTopic } from "@/hooks/useTelemetry";
+import { useTopic } from "@/client/useTelemetry";
 import type { StatusCode } from "@/shared/status";
-import type { TrendPoint } from "@/lib/telemetry-store";
+import type { TrendPoint } from "@/client/telemetry-store";
 import { fmt } from "../status";
 
 function Sparkline({ data, color }: { data: number[]; color: string }): React.JSX.Element | null {

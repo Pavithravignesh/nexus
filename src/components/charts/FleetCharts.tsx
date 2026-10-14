@@ -3,9 +3,9 @@
 import { scaleLinear } from "d3-scale";
 import { curveMonotoneX, line as d3line } from "d3-shape";
 import { useEffect, useRef, useState } from "react";
-import { useTopic } from "@/hooks/useTelemetry";
+import { useTopic } from "@/client/useTelemetry";
 import type { StatusCode } from "@/shared/status";
-import type { TrendPoint } from "@/lib/telemetry-store";
+import type { TrendPoint } from "@/client/telemetry-store";
 import { STATUS_UI, fmt } from "../status";
 
 function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {

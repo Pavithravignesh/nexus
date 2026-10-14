@@ -1,5 +1,5 @@
 import { DEFAULT_THRESHOLDS, getThresholds, setThresholds, type Thresholds } from "@/shared/thresholds";
-import type { Runtime } from "../sim/runtime";
+import type { Runtime } from "../runtime";
 
 export type ThresholdsRuntime = Pick<Runtime, "engine" | "hub" | "onThresholds">;
 

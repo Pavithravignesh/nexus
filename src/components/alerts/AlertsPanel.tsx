@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useNow, useTopic } from "@/hooks/useTelemetry";
-import { postAlertAck } from "@/lib/api";
+import { useNow, useTopic } from "@/client/useTelemetry";
+import { postAlertAck } from "@/client/api";
 import { ALL_SEVERITIES, filterAlerts, toggleInSet, type AckFilter, type AlertSort } from "@/lib/list-filters";
 import { paginate } from "@/lib/pagination";
 import { SENSORS, sensorIndex } from "@/shared/sensors";

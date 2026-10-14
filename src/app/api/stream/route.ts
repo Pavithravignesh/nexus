@@ -1,5 +1,5 @@
-import { streamResponse } from "@/server/services/sse-response";
-import { getRuntime } from "@/server/sim/runtime";
+import { streamResponse } from "@/server/stream/sse-response";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

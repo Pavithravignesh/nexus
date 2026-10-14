@@ -74,7 +74,7 @@ Design docs: [`docs/diagrams`](docs/diagrams) (HLD, architecture, wireframe — 
 - **Deltas, not full frames:** only devices that reported or changed status (~15% per tick).
 - **No React state for 10k devices:** a `TelemetryStore` holds typed arrays; rows and panels subscribe via `useSyncExternalStore`, batched per animation frame.
 - **Hot state in memory, MongoDB for persistence:** latest readings and events are flushed in bulk every 5 s.
-- **Anomaly detection as streaming statistics, not a trained model** (`src/server/ai/anomaly.ts`):
+- **Anomaly detection as streaming statistics, not a trained model** (`src/server/insights/anomaly.ts`):
   - Each reading learns its own normal: an EWMA mean, variance and rate of change, held in typed arrays (O(1) per reading, one pass per tick, no training data).
   - Outliers do not update the variance, so a slow drift cannot hide itself.
   - Only deviations heading toward an alarm bound are flagged, so a reading recovering after a spike stays quiet.

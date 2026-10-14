@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { TelemetryProvider, useLive } from "@/hooks/useTelemetry";
+import { TelemetryProvider, useLive } from "@/client/useTelemetry";
 import { EMPTY_FILTERS, FILTER_OPTIONS, filtersKey, isFiltered, matchesDevice, type DeviceFilters } from "@/lib/device-filters";
 import type { DeviceType, Floor, Zone } from "@/shared/fleet";
 import { SENSORS } from "@/shared/sensors";

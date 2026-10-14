@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TelemetryProvider, useLive, useTopic } from "@/hooks/useTelemetry";
+import { TelemetryProvider, useLive, useTopic } from "@/client/useTelemetry";
 import { deviceIdxFor } from "@/shared/fleet";
 import { SENSORS, type SensorKey } from "@/shared/sensors";
 import type { StatusCode } from "@/shared/status";

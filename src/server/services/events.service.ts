@@ -1,7 +1,7 @@
 import { logger } from "../logger";
 import { ApiError } from "../errors";
-import { decodeCursor, type EventsQuery } from "../repos/event-query";
-import { eventsRepo } from "../repos/events.repo";
+import { decodeCursor, type EventsQuery } from "../persistence/repos/event-query";
+import { eventsRepo } from "../persistence/repos/events.repo";
 import type { TelemetryEvent } from "@/shared/types";
 
 /** Recent persisted events for one device; empty (not an error) when MongoDB is unavailable. */

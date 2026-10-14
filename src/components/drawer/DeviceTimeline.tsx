@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchEvents, type EventsPageData } from "@/lib/api";
+import { fetchEvents, type EventsPageData } from "@/client/api";
 import { toggleInSet } from "@/lib/list-filters";
 import { SEVERITY_CODE, STATUS_UI } from "../status";
 import { Chip } from "../ui/ListControls";

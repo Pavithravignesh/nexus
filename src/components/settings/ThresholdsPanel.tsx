@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useLive } from "@/hooks/useTelemetry";
-import { resetThresholds, saveThresholds } from "@/lib/thresholds-api";
+import { useLive } from "@/client/useTelemetry";
+import { resetThresholds, saveThresholds } from "@/client/thresholds-api";
 import { SENSORS, type SensorKey } from "@/shared/sensors";
 import { getThresholds, setThresholds, sidesOf, type BoundSide, type Thresholds } from "@/shared/thresholds";
 import { checkDraft, toDraft, type Draft, type Pair } from "./thresholds-draft";

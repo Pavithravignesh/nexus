@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:office": "node scripts/dev-office.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -12,8 +13,8 @@
     "db": "node scripts/start-mongo.mjs",
     "seed": "tsx scripts/seed.ts",
     "diagrams": "node docs/diagrams/serve.mjs",
-    "push": "node tools/push.mjs",
-    "status": "node tools/push.mjs --status"
+    "push": "node scripts/push.mjs",
+    "status": "node scripts/push.mjs --status"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow, useTopic } from "@/hooks/useTelemetry";
+import { useNow, useTopic } from "@/client/useTelemetry";
 import { SENSORS, sensorIndex } from "@/shared/sensors";
 import type { Insight } from "@/shared/types";
 import { ago } from "../status";
